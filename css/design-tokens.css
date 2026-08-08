@@ -1,0 +1,40 @@
+/* Design tokens — couleurs, espacements, typographie */
+:root {
+  /* Espacements (base 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Couleurs neutres (ambiance plan technique) */
+  --color-bg: #f4f6f8;
+  --color-bg-panel: #ffffff;
+  --color-border: #d7dde3;
+  --color-text: #232a30;
+  --color-text-muted: #6b7680;
+
+  /* Plan de fond */
+  --color-plan-stroke: #4a5561;
+
+  /* Accents */
+  --color-accent: #2563eb;
+  --color-accent-hover: #d97706;
+
+  /* Couleurs de liaison par type de circuit */
+  --color-circuit-eclairage: #2563eb;
+  --color-circuit-prise: #16a34a;
+  --color-circuit-alimentation: #dc2626;
+
+  /* Typographie */
+  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 18px;
+
+  /* Rayons */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
