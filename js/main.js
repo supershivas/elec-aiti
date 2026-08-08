@@ -3,6 +3,7 @@ import { Stage } from "./editor/stage.js";
 import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
 import { ComponentsLayer } from "./editor/componentsLayer.js";
+import { MenuBar } from "./editor/menuBar.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 
 const svgEl = document.querySelector("#stage-svg");
@@ -10,9 +11,7 @@ const errorEl = document.querySelector("#stage-error");
 const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
-const exportSvgButton = document.querySelector("#export-svg");
-const exportPngButton = document.querySelector("#export-png");
-const exportPdfButton = document.querySelector("#export-pdf");
+const undoMenuButton = document.querySelector("#menu-undo");
 
 for (const floor of floors) {
   const option = document.createElement("option");
@@ -37,7 +36,14 @@ const palette = new Palette({
   onArm: (type) => componentsLayer.armPlacement(type),
 });
 
-store.onChange(() => componentsLayer.render());
+function refreshUndoState() {
+  undoMenuButton.disabled = !store.canUndo();
+}
+
+store.onChange(() => {
+  componentsLayer.render();
+  refreshUndoState();
+});
 
 floorSelectEl.addEventListener("change", () => {
   const floor = getFloorById(floorSelectEl.value);
@@ -45,11 +51,25 @@ floorSelectEl.addEventListener("change", () => {
   componentsLayer.setFloor(floor.id);
 });
 
-exportSvgButton.addEventListener("click", () => exportSvg(stage, getFloorById(floorSelectEl.value)));
-exportPngButton.addEventListener("click", () => exportPng(stage, getFloorById(floorSelectEl.value)));
-exportPdfButton.addEventListener("click", () => exportPdf(stage, getFloorById(floorSelectEl.value)));
+const menuBar = new MenuBar([
+  { triggerId: "menu-file-trigger", dropdownId: "menu-file-dropdown" },
+  { triggerId: "menu-edit-trigger", dropdownId: "menu-edit-dropdown" },
+]);
+
+menuBar.onAction("#menu-export-svg", () => exportSvg(stage, getFloorById(floorSelectEl.value), store));
+menuBar.onAction("#menu-export-png", () => exportPng(stage, getFloorById(floorSelectEl.value), store));
+menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, getFloorById(floorSelectEl.value), store));
+menuBar.onAction("#menu-print", () => exportPdf(stage, getFloorById(floorSelectEl.value), store));
+menuBar.onAction("#menu-undo", () => store.undo());
+menuBar.onAction("#menu-clear", () => {
+  const floor = getFloorById(floorSelectEl.value);
+  if (confirm(`Effacer tous les composants de l'étage "${floor.label}" ? Cette action peut être annulée avec Édition > Annuler.`)) {
+    store.clearFloor(floor.id);
+  }
+});
 
 const initialFloor = floors[0];
 floorSelectEl.value = initialFloor.id;
 stage.loadFloor(initialFloor);
 componentsLayer.setFloor(initialFloor.id);
+refreshUndoState();

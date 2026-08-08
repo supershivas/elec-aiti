@@ -10,15 +10,29 @@
 </head>
 <body>
   <div class="app">
+    <nav class="menubar" aria-label="Menu principal">
+      <div class="menubar__item">
+        <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
+        <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
+          <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter en SVG</button>
+          <button type="button" class="menubar__action" id="menu-export-png" role="menuitem">Exporter en PNG</button>
+          <button type="button" class="menubar__action" id="menu-export-pdf" role="menuitem">Exporter en PDF</button>
+          <hr class="menubar__separator" />
+          <button type="button" class="menubar__action" id="menu-print" role="menuitem">Imprimer</button>
+        </div>
+      </div>
+      <div class="menubar__item">
+        <button type="button" class="menubar__trigger" id="menu-edit-trigger" aria-haspopup="true" aria-expanded="false">Édition</button>
+        <div class="menubar__dropdown" id="menu-edit-dropdown" hidden role="menu">
+          <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler</button>
+          <hr class="menubar__separator" />
+          <button type="button" class="menubar__action menubar__action--danger" id="menu-clear" role="menuitem">Effacer tout le plan</button>
+        </div>
+      </div>
+    </nav>
     <header class="toolbar">
       <h1 class="toolbar__title">Éditeur de schémas électriques</h1>
       <select id="floor-select" class="floor-select" aria-label="Étage affiché"></select>
-      <div class="toolbar__export" role="group" aria-label="Exporter le plan">
-        <span class="toolbar__export-label">Exporter</span>
-        <button type="button" id="export-svg" class="toolbar__button">SVG</button>
-        <button type="button" id="export-png" class="toolbar__button">PNG</button>
-        <button type="button" id="export-pdf" class="toolbar__button">PDF</button>
-      </div>
     </header>
     <div class="workspace">
       <aside id="palette" class="palette" aria-label="Palette de composants"></aside>

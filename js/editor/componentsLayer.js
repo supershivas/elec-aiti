@@ -121,6 +121,7 @@ export class ComponentsLayer {
       startPoint: this.stage.clientToViewBoxPoint(event.clientX, event.clientY),
       startX: component.x,
       startY: component.y,
+      snapshotted: false,
     };
     this.layerEl.setPointerCapture(event.pointerId);
   }
@@ -135,6 +136,13 @@ export class ComponentsLayer {
 
   onStagePointerMove(event) {
     if (!this.dragState || this.dragState.pointerId !== event.pointerId) return;
+    if (!this.dragState.snapshotted) {
+      // Un seul snapshot pour tout le glissé, pris au premier mouvement réel
+      // (pas au pointerdown, sinon un simple clic de sélection consommerait
+      // un cran d'annulation pour rien).
+      this.store.snapshot();
+      this.dragState.snapshotted = true;
+    }
     const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
     const dx = point.x - this.dragState.startPoint.x;
     const dy = point.y - this.dragState.startPoint.y;
@@ -200,6 +208,7 @@ export class ComponentsLayer {
     } else if (event.key.toLowerCase() === "r") {
       const component = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === this.selectedId);
       if (component) {
+        this.store.snapshot();
         this.store.updateComponent(this.selectedId, { rotation: (component.rotation + 90) % 360 });
       }
     } else if (event.key === "Escape") {

@@ -1,13 +1,97 @@
 // Export du plan de l'étage courant en SVG / PNG / PDF, sans dépendance externe.
 // Le PDF passe par la boîte de dialogue d'impression du navigateur ("Enregistrer en PDF"),
 // pour éviter d'ajouter une librairie de génération PDF juste pour ce besoin.
+import { getCatalogEntry } from "../catalog/components.js";
 
-function buildExportSvgString(stage) {
+const SVG_NS = "http://www.w3.org/2000/svg";
+const LEGEND_ICON_SIZE = 32;
+const LEGEND_ROW_HEIGHT = 50;
+const LEGEND_COL_WIDTH = 260;
+const LEGEND_TOP_PADDING = 40;
+
+function buildLegendIcon(entry) {
+  const group = document.createElementNS(SVG_NS, "g");
+  group.setAttribute("color", "#dc2626");
+
+  if (entry.shape === "box") {
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", -LEGEND_ICON_SIZE / 2);
+    rect.setAttribute("y", -LEGEND_ICON_SIZE / 2);
+    rect.setAttribute("width", LEGEND_ICON_SIZE);
+    rect.setAttribute("height", LEGEND_ICON_SIZE);
+    rect.setAttribute("rx", 2);
+    rect.setAttribute("fill", "#ffffff");
+    rect.setAttribute("stroke", "currentColor");
+    rect.setAttribute("stroke-width", "1.5");
+    group.appendChild(rect);
+    if (entry.abbr) {
+      const text = document.createElementNS(SVG_NS, "text");
+      text.textContent = entry.abbr;
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "central");
+      text.setAttribute("fill", "currentColor");
+      text.setAttribute("font", "600 9px sans-serif");
+      group.appendChild(text);
+    }
+  } else {
+    const use = document.createElementNS(SVG_NS, "use");
+    use.setAttribute("href", `#sym-${entry.symbolId}`);
+    use.setAttribute("x", -LEGEND_ICON_SIZE / 2);
+    use.setAttribute("y", -LEGEND_ICON_SIZE / 2);
+    use.setAttribute("width", LEGEND_ICON_SIZE);
+    use.setAttribute("height", LEGEND_ICON_SIZE);
+    use.setAttribute("fill", "#ffffff");
+    use.setAttribute("stroke", "currentColor");
+    use.setAttribute("stroke-width", "1.5");
+    use.setAttribute("stroke-linecap", "round");
+    use.setAttribute("stroke-linejoin", "round");
+    group.appendChild(use);
+  }
+  return group;
+}
+
+// Légende des seuls types de composants réellement posés sur l'étage exporté
+// (pas tout le catalogue), en grille sous le plan.
+function buildLegendGroup(usedEntries, originX, originY, width) {
+  const group = document.createElementNS(SVG_NS, "g");
+  group.setAttribute("transform", `translate(${originX}, ${originY})`);
+
+  const title = document.createElementNS(SVG_NS, "text");
+  title.textContent = "Légende";
+  title.setAttribute("x", 0);
+  title.setAttribute("y", 16);
+  title.setAttribute("fill", "#232a30");
+  title.setAttribute("font", "700 16px sans-serif");
+  group.appendChild(title);
+
+  const columns = Math.max(1, Math.floor(width / LEGEND_COL_WIDTH));
+  usedEntries.forEach((entry, i) => {
+    const col = i % columns;
+    const row = Math.floor(i / columns);
+    const itemX = col * LEGEND_COL_WIDTH;
+    const itemY = LEGEND_TOP_PADDING + row * LEGEND_ROW_HEIGHT;
+
+    const icon = buildLegendIcon(entry);
+    icon.setAttribute("transform", `translate(${itemX + LEGEND_ICON_SIZE / 2}, ${itemY + LEGEND_ICON_SIZE / 2})`);
+    group.appendChild(icon);
+
+    const label = document.createElementNS(SVG_NS, "text");
+    label.textContent = entry.label;
+    label.setAttribute("x", itemX + LEGEND_ICON_SIZE + 12);
+    label.setAttribute("y", itemY + LEGEND_ICON_SIZE / 2 + 4);
+    label.setAttribute("fill", "#232a30");
+    label.setAttribute("font", "400 12px sans-serif");
+    group.appendChild(label);
+  });
+
+  const rows = Math.ceil(usedEntries.length / columns);
+  const height = LEGEND_TOP_PADDING + rows * LEGEND_ROW_HEIGHT;
+  return { group, height };
+}
+
+function buildExportSvgString(stage, floor, store) {
   const clone = stage.svgEl.cloneNode(true);
   const { x, y, width, height } = stage.baseViewBox;
-  clone.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
-  clone.setAttribute("width", String(width));
-  clone.setAttribute("height", String(height));
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.removeAttribute("class");
 
@@ -16,7 +100,7 @@ function buildExportSvgString(stage) {
   const root = getComputedStyle(document.documentElement);
   const componentColor = root.getPropertyValue("--color-component").trim();
   const bgPanel = root.getPropertyValue("--color-bg-panel").trim();
-  const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  const style = document.createElementNS(SVG_NS, "style");
   style.textContent = `
     .component { color: ${componentColor}; }
     .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -28,7 +112,23 @@ function buildExportSvgString(stage) {
   // La sélection est un état d'édition, pas une information du schéma exporté
   clone.querySelectorAll(".component--selected").forEach((el) => el.classList.remove("component--selected"));
 
-  return { svgString: new XMLSerializer().serializeToString(clone), width, height };
+  const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
+    .map((type) => getCatalogEntry(type))
+    .filter(Boolean);
+
+  let totalHeight = height;
+  if (usedEntries.length > 0) {
+    const legendGap = 24;
+    const { group: legendGroup, height: legendHeight } = buildLegendGroup(usedEntries, x, y + height + legendGap, width);
+    clone.appendChild(legendGroup);
+    totalHeight = height + legendGap + legendHeight;
+  }
+
+  clone.setAttribute("viewBox", `${x} ${y} ${width} ${totalHeight}`);
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(totalHeight));
+
+  return { svgString: new XMLSerializer().serializeToString(clone), width, height: totalHeight };
 }
 
 function downloadBlob(blob, filename) {
@@ -40,8 +140,8 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-export function exportSvg(stage, floor) {
-  const { svgString } = buildExportSvgString(stage);
+export function exportSvg(stage, floor, store) {
+  const { svgString } = buildExportSvgString(stage, floor, store);
   downloadBlob(new Blob([svgString], { type: "image/svg+xml" }), `${floor.id}.svg`);
 }
 
@@ -72,13 +172,13 @@ async function svgToPngBlob(svgString, width, height, scale = 2) {
   }
 }
 
-export async function exportPng(stage, floor) {
-  const { svgString, width, height } = buildExportSvgString(stage);
+export async function exportPng(stage, floor, store) {
+  const { svgString, width, height } = buildExportSvgString(stage, floor, store);
   const pngBlob = await svgToPngBlob(svgString, width, height);
   downloadBlob(pngBlob, `${floor.id}.png`);
 }
 
-export async function exportPdf(stage, floor) {
+export async function exportPdf(stage, floor, store) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("Merci d'autoriser les pop-ups pour exporter en PDF (impression du navigateur).");
@@ -86,7 +186,7 @@ export async function exportPdf(stage, floor) {
   }
   printWindow.document.write("<title>Génération du PDF…</title>Génération du plan…");
 
-  const { svgString, width, height } = buildExportSvgString(stage);
+  const { svgString, width, height } = buildExportSvgString(stage, floor, store);
   const pngBlob = await svgToPngBlob(svgString, width, height);
   const pngUrl = URL.createObjectURL(pngBlob);
   const landscape = width >= height;
