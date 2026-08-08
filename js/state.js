@@ -104,9 +104,28 @@ export class Store {
     return liaison;
   }
 
+  updateLiaison(id, changes) {
+    const liaison = this.state.liaisons.find((l) => l.id === id);
+    if (!liaison) return;
+    this.snapshot();
+    Object.assign(liaison, changes);
+    this.notify();
+  }
+
   removeLiaison(id) {
     this.snapshot();
     this.state.liaisons = this.state.liaisons.filter((l) => l.id !== id);
+    this.notify();
+  }
+
+  // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
+  // seul cran d'annulation.
+  loadProject(data) {
+    this.snapshot();
+    this.state = {
+      components: Array.isArray(data?.components) ? data.components : [],
+      liaisons: Array.isArray(data?.liaisons) ? data.liaisons : [],
+    };
     this.notify();
   }
 

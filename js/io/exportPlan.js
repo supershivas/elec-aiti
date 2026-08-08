@@ -2,6 +2,7 @@
 // Le PDF passe par la boîte de dialogue d'impression du navigateur ("Enregistrer en PDF"),
 // pour éviter d'ajouter une librairie de génération PDF juste pour ce besoin.
 import { getCatalogEntry } from "../catalog/components.js";
+import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const LEGEND_ICON_SIZE = 32;
@@ -132,15 +133,6 @@ function buildExportSvgString(stage, floor, store) {
   clone.setAttribute("height", String(totalHeight));
 
   return { svgString: new XMLSerializer().serializeToString(clone), width, height: totalHeight };
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 export function exportSvg(stage, floor, store) {

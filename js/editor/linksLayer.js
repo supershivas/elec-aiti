@@ -92,6 +92,11 @@ export class LinksLayer {
     this.render();
   }
 
+  getSelectedLiaison() {
+    if (!this.selectedId || !this.floorId) return null;
+    return this.store.getLiaisonsForFloor(this.floorId).find((l) => l.id === this.selectedId) ?? null;
+  }
+
   startLinking(type) {
     this.linking = { type, fromId: null };
     this.componentsLayer.setLinkPickHandler((component) => this.pick(component));
@@ -134,8 +139,7 @@ export class LinksLayer {
       this.store.removeLiaison(this.selectedId);
       this.selectedId = null;
     } else if (event.key === "Escape") {
-      this.selectedId = null;
-      this.render();
+      this.select(null);
     }
   }
 }

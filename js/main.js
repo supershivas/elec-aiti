@@ -4,9 +4,11 @@ import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
 import { ComponentsLayer } from "./editor/componentsLayer.js";
 import { LinksLayer } from "./editor/linksLayer.js";
+import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
+import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
 
 const svgEl = document.querySelector("#stage-svg");
 const errorEl = document.querySelector("#stage-error");
@@ -14,9 +16,11 @@ const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
 const linksLayerEl = document.querySelector("#links-layer");
+const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const linkToolToggleEl = document.querySelector("#link-tool-toggle");
+const importFileInputEl = document.querySelector("#import-file-input");
 
 for (const floor of floors) {
   const option = document.createElement("option");
@@ -35,9 +39,10 @@ for (const linkType of linkTypes) {
 const stage = new Stage(svgEl, errorEl);
 const store = new Store();
 
-// Déclarée avant d'être assignée : les deux calques ont besoin de se référencer
+// Déclarée avant d'être assignée : les calques ont besoin de se référencer
 // mutuellement pour que sélectionner l'un désélectionne l'autre.
 let linksLayer;
+let propertiesPanel;
 
 const componentsLayer = new ComponentsLayer({
   layerEl: componentsLayerEl,
@@ -47,7 +52,10 @@ const componentsLayer = new ComponentsLayer({
     palette.setArmed(null);
     componentsLayer.armPlacement(null);
   },
-  onSelect: () => linksLayer.clearSelection(),
+  onSelect: () => {
+    linksLayer.clearSelection();
+    propertiesPanel.refresh();
+  },
 });
 const palette = new Palette({
   containerEl: paletteEl,
@@ -62,7 +70,17 @@ linksLayer = new LinksLayer({
   stage,
   store,
   componentsLayer,
-  onSelect: () => componentsLayer.clearSelection(),
+  onSelect: () => {
+    componentsLayer.clearSelection();
+    propertiesPanel.refresh();
+  },
+});
+
+propertiesPanel = new PropertiesPanel({
+  containerEl: propertiesPanelEl,
+  store,
+  componentsLayer,
+  linksLayer,
 });
 
 function refreshUndoState() {
@@ -73,6 +91,10 @@ store.onChange(() => {
   componentsLayer.render();
   linksLayer.render();
   refreshUndoState();
+  // Différé : si le changement vient d'un champ du panneau lui-même (évènement
+  // "change" en cours), reconstruire son DOM tout de suite fait planter le
+  // navigateur ("node no longer a child" pendant le blur de ce même champ).
+  queueMicrotask(() => propertiesPanel.refresh());
 });
 
 floorSelectEl.addEventListener("change", () => {
@@ -80,6 +102,7 @@ floorSelectEl.addEventListener("change", () => {
   stage.loadFloor(floor);
   componentsLayer.setFloor(floor.id);
   linksLayer.setFloor(floor.id);
+  propertiesPanel.refresh();
 });
 
 let linkingArmed = false;
@@ -113,6 +136,22 @@ const menuBar = new MenuBar([
   { triggerId: "menu-edit-trigger", dropdownId: "menu-edit-dropdown" },
 ]);
 
+menuBar.onAction("#menu-save-project", () => exportProjectFile(store));
+menuBar.onAction("#menu-open-project", () => importFileInputEl.click());
+importFileInputEl.addEventListener("change", async () => {
+  const file = importFileInputEl.files[0];
+  importFileInputEl.value = "";
+  if (!file) return;
+  if (!confirm("Ouvrir ce projet remplacera tous les étages actuels (annulable avec Édition > Annuler). Continuer ?")) {
+    return;
+  }
+  try {
+    await importProjectFile(store, file);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
 menuBar.onAction("#menu-export-svg", () => exportSvg(stage, getFloorById(floorSelectEl.value), store));
 menuBar.onAction("#menu-export-png", () => exportPng(stage, getFloorById(floorSelectEl.value), store));
 menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, getFloorById(floorSelectEl.value), store));
@@ -131,3 +170,4 @@ stage.loadFloor(initialFloor);
 componentsLayer.setFloor(initialFloor.id);
 linksLayer.setFloor(initialFloor.id);
 refreshUndoState();
+propertiesPanel.refresh();

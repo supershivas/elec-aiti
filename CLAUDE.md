@@ -57,9 +57,11 @@ Liaison {
   partageant le même `circuitId` (interrupteur1↔lumière, interrupteur2↔lumière), plutôt
   qu'une liaison à 3 extrémités. Plus simple à router/afficher, cohérent avec "un fil = 2 bouts".
 - Sauvegarde : **JSON** (le seul format persistant possible sans backend). Auto-save en
-  `localStorage` + bouton export/import de fichier `.json` (pas de compte, pas de sync).
-- Export image du schéma final : le SVG produit est déjà exportable tel quel (clic droit
-  "enregistrer" ou bouton "exporter en SVG"), pas besoin de lib de rendu PDF/PNG en v1.
+  `localStorage` + export/import du projet complet (tous étages) via le menu Fichier, au
+  format `.aiti` (JSON renommé), nommé `circuit-DDMMYYYY.aiti` (pas de compte, pas de sync).
+- Export du schéma : menu Fichier > Exporter en SVG/PNG/PDF (légende générée automatiquement,
+  ne listant que les types de composants réellement posés sur l'étage). Le PDF passe par la
+  boîte de dialogue d'impression du navigateur, sans dépendance de génération PDF.
 
 ## Gestion multi-étages
 - Un `floors.json` (ou tableau en dur) liste les étages : `{id, label, planPath}`.

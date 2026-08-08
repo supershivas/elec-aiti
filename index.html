@@ -14,6 +14,10 @@
       <div class="menubar__item">
         <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
         <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
+          <button type="button" class="menubar__action" id="menu-save-project" role="menuitem">Enregistrer le projet (.aiti)</button>
+          <button type="button" class="menubar__action" id="menu-open-project" role="menuitem">Ouvrir un projet (.aiti)</button>
+          <input type="file" id="import-file-input" accept=".aiti" hidden />
+          <hr class="menubar__separator" />
           <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter en SVG</button>
           <button type="button" class="menubar__action" id="menu-export-png" role="menuitem">Exporter en PNG</button>
           <button type="button" class="menubar__action" id="menu-export-pdf" role="menuitem">Exporter en PDF</button>
@@ -132,6 +136,7 @@
         </svg>
         <p id="stage-error" class="stage__error" hidden></p>
       </main>
+      <aside id="properties-panel" class="properties" aria-label="Propriétés"></aside>
     </div>
   </div>
   <script type="module" src="js/main.js"></script>

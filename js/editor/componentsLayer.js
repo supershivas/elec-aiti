@@ -223,6 +223,11 @@ export class ComponentsLayer {
     this.render();
   }
 
+  getSelectedComponent() {
+    if (!this.selectedId || !this.floorId) return null;
+    return this.store.getComponentsForFloor(this.floorId).find((c) => c.id === this.selectedId) ?? null;
+  }
+
   onKeyDown(event) {
     if (!this.selectedId) return;
     if (event.key === "Delete" || event.key === "Backspace") {
@@ -236,8 +241,7 @@ export class ComponentsLayer {
         this.store.updateComponent(this.selectedId, { rotation: (component.rotation + 90) % 360 });
       }
     } else if (event.key === "Escape") {
-      this.selectedId = null;
-      this.render();
+      this.select(null);
     }
   }
 }

@@ -148,6 +148,82 @@
   padding: var(--space-4);
 }
 
+.properties {
+  width: 240px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--color-bg-panel);
+  border-left: 1px solid var(--color-border);
+  padding: var(--space-4);
+}
+
+.properties__empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.properties__title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+.properties__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.properties__field-label {
+  color: var(--color-text-muted);
+}
+
+.properties__field input,
+.properties__field select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  font-size: var(--font-size-base);
+}
+
+.properties__rotation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.properties__rotation button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  cursor: pointer;
+}
+
+.properties__rotation button:hover {
+  border-color: var(--color-accent);
+}
+
+.properties__delete {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-circuit-alimentation);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  color: var(--color-circuit-alimentation);
+  cursor: pointer;
+}
+
+.properties__delete:hover {
+  background: var(--color-circuit-alimentation);
+  color: #fff;
+}
+
 .palette__category + .palette__category {
   margin-top: var(--space-4);
 }
