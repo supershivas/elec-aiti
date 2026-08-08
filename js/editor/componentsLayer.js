@@ -1,7 +1,7 @@
 import { getCatalogEntry } from "../catalog/components.js";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-const DEFAULT_SYMBOL_SIZE = 24;
+export const SVG_NS = "http://www.w3.org/2000/svg";
+export const DEFAULT_SYMBOL_SIZE = 40;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {

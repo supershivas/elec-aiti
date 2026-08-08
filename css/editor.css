@@ -60,12 +60,35 @@
 }
 
 .palette__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   text-align: left;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
   cursor: pointer;
+}
+
+.palette__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--color-component);
+}
+
+.palette__icon rect,
+.palette__icon use {
+  fill: var(--color-bg-panel);
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.palette__icon text {
+  fill: currentColor;
+  font-size: 8px;
+  font-weight: 600;
 }
 
 .palette__item:hover {
@@ -112,6 +135,8 @@
   fill: var(--color-bg-panel);
   stroke: currentColor;
   stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .component--selected {

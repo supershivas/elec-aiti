@@ -1,5 +1,7 @@
 import { catalog, getCategories } from "../catalog/components.js";
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
 // Palette latérale : liste les types de composants par catégorie, arme la pose au clic
 export class Palette {
   constructor({ containerEl, onArm }) {
@@ -27,7 +29,12 @@ export class Palette {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "palette__item";
-        button.textContent = entry.label;
+        button.appendChild(this.buildIcon(entry));
+
+        const label = document.createElement("span");
+        label.textContent = entry.label;
+        button.appendChild(label);
+
         button.addEventListener("click", () => this.toggle(entry.type));
         this.buttonsByType.set(entry.type, button);
         list.appendChild(button);
@@ -35,6 +42,40 @@ export class Palette {
       section.appendChild(list);
       this.containerEl.appendChild(section);
     }
+  }
+
+  buildIcon(entry) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.classList.add("palette__icon");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = entry.label;
+    svg.appendChild(title);
+
+    if (entry.shape === "box") {
+      const rect = document.createElementNS(SVG_NS, "rect");
+      rect.setAttribute("x", 2);
+      rect.setAttribute("y", 2);
+      rect.setAttribute("width", 20);
+      rect.setAttribute("height", 20);
+      rect.setAttribute("rx", 2);
+      svg.appendChild(rect);
+
+      const text = document.createElementNS(SVG_NS, "text");
+      text.textContent = entry.abbr;
+      text.setAttribute("x", 12);
+      text.setAttribute("y", 12);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "central");
+      svg.appendChild(text);
+    } else {
+      const use = document.createElementNS(SVG_NS, "use");
+      use.setAttribute("href", `#sym-${entry.symbolId}`);
+      svg.appendChild(use);
+    }
+    return svg;
   }
 
   toggle(type) {
