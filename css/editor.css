@@ -26,6 +26,36 @@
   background: var(--color-bg-panel);
 }
 
+.toolbar__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.toolbar__links-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.toolbar__button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  cursor: pointer;
+}
+
+.toolbar__button:hover {
+  border-color: var(--color-accent);
+}
+
+.toolbar__button--armed {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
 .menubar {
   display: flex;
   align-items: center;
@@ -203,6 +233,10 @@
   cursor: crosshair;
 }
 
+.stage__svg--linking {
+  cursor: crosshair;
+}
+
 .component {
   color: var(--color-component);
   cursor: pointer;
@@ -236,6 +270,25 @@
   font-size: 6px;
   font-weight: 600;
   pointer-events: none;
+}
+
+.component--link-pending .component__shape {
+  stroke: var(--color-accent-hover);
+  stroke-width: 3;
+}
+
+.liaison {
+  cursor: pointer;
+}
+
+.liaison__line {
+  stroke: var(--liaison-color, var(--color-text-muted));
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.liaison--selected .liaison__line {
+  stroke-width: 5;
 }
 
 .stage__error {

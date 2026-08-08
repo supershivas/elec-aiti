@@ -1,0 +1,141 @@
+import { getLinkType } from "../catalog/linkTypes.js";
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const HIT_STROKE_WIDTH = 14;
+
+// Gère l'affichage, la sélection et le tracé des liaisons entre composants.
+// Une liaison ne stocke que les deux ID de composants : sa géométrie est
+// recalculée à chaque rendu à partir de leur position courante.
+export class LinksLayer {
+  constructor({ layerEl, stage, store, componentsLayer, onSelect }) {
+    this.layerEl = layerEl;
+    this.stage = stage;
+    this.store = store;
+    this.componentsLayer = componentsLayer;
+    this.onSelect = onSelect;
+    this.floorId = null;
+    this.selectedId = null;
+    this.linking = null; // { type, fromId }
+
+    window.addEventListener("keydown", (event) => this.onKeyDown(event));
+  }
+
+  setFloor(floorId) {
+    this.floorId = floorId;
+    this.selectedId = null;
+    this.stopLinking();
+    this.render();
+  }
+
+  render() {
+    this.layerEl.replaceChildren();
+    if (!this.floorId) return;
+    const components = this.store.getComponentsForFloor(this.floorId);
+    const findComponent = (id) => components.find((c) => c.id === id);
+    for (const liaison of this.store.getLiaisonsForFloor(this.floorId)) {
+      const from = findComponent(liaison.fromComponentId);
+      const to = findComponent(liaison.toComponentId);
+      if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
+      this.layerEl.appendChild(this.renderLiaison(liaison, from, to));
+    }
+  }
+
+  renderLiaison(liaison, from, to) {
+    const linkType = getLinkType(liaison.type);
+    const group = document.createElementNS(SVG_NS, "g");
+    group.classList.add("liaison");
+    if (liaison.id === this.selectedId) group.classList.add("liaison--selected");
+    group.dataset.liaisonId = liaison.id;
+
+    // Couleur résolue en dur (pas de var() vers le token) pour rester correcte
+    // dans un export SVG/PNG autonome, qui n'a pas accès à design-tokens.css.
+    const resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(linkType.colorVar).trim();
+    group.style.setProperty("--liaison-color", resolvedColor);
+
+    const hit = document.createElementNS(SVG_NS, "line");
+    hit.setAttribute("x1", from.x);
+    hit.setAttribute("y1", from.y);
+    hit.setAttribute("x2", to.x);
+    hit.setAttribute("y2", to.y);
+    hit.setAttribute("stroke", "transparent");
+    hit.setAttribute("stroke-width", HIT_STROKE_WIDTH);
+    group.appendChild(hit);
+
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", from.x);
+    line.setAttribute("y1", from.y);
+    line.setAttribute("x2", to.x);
+    line.setAttribute("y2", to.y);
+    line.classList.add("liaison__line");
+    group.appendChild(line);
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = linkType.label;
+    group.appendChild(title);
+
+    group.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      this.select(liaison.id);
+    });
+    return group;
+  }
+
+  select(id) {
+    this.selectedId = id;
+    this.render();
+    this.onSelect?.(id);
+  }
+
+  clearSelection() {
+    if (!this.selectedId) return;
+    this.selectedId = null;
+    this.render();
+  }
+
+  startLinking(type) {
+    this.linking = { type, fromId: null };
+    this.componentsLayer.setLinkPickHandler((component) => this.pick(component));
+  }
+
+  stopLinking() {
+    this.linking = null;
+    this.componentsLayer.setLinkPickHandler(null);
+    this.componentsLayer.setPendingHighlight(null);
+  }
+
+  pick(component) {
+    if (!this.linking) return;
+    if (!this.linking.fromId) {
+      this.linking.fromId = component.id;
+      this.componentsLayer.setPendingHighlight(component.id);
+      return;
+    }
+    if (this.linking.fromId === component.id) {
+      // Reclic sur le même composant : on annule la liaison en cours plutôt
+      // que de créer une liaison vers soi-même.
+      this.linking.fromId = null;
+      this.componentsLayer.setPendingHighlight(null);
+      return;
+    }
+    this.store.addLiaison({
+      floorId: this.floorId,
+      type: this.linking.type,
+      fromComponentId: this.linking.fromId,
+      toComponentId: component.id,
+    });
+    this.linking.fromId = null;
+    this.componentsLayer.setPendingHighlight(null);
+  }
+
+  onKeyDown(event) {
+    if (!this.selectedId) return;
+    if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      this.store.removeLiaison(this.selectedId);
+      this.selectedId = null;
+    } else if (event.key === "Escape") {
+      this.selectedId = null;
+      this.render();
+    }
+  }
+}

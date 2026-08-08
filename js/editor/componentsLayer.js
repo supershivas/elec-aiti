@@ -7,16 +7,19 @@ const CLICK_THRESHOLD_PX = 6;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
-  constructor({ layerEl, stage, store, onPlacementConsumed }) {
+  constructor({ layerEl, stage, store, onPlacementConsumed, onSelect }) {
     this.layerEl = layerEl;
     this.stage = stage;
     this.store = store;
     this.onPlacementConsumed = onPlacementConsumed;
+    this.onSelect = onSelect;
     this.floorId = null;
     this.armedType = null;
     this.selectedId = null;
     this.dragState = null;
     this.placementStart = null;
+    this.linkPickHandler = null;
+    this.pendingHighlightId = null;
 
     this.stage.svgEl.addEventListener("pointerdown", (event) => this.onStagePointerDown(event));
     this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
@@ -35,6 +38,15 @@ export class ComponentsLayer {
     this.stage.svgEl.classList.toggle("stage__svg--placing", Boolean(type));
   }
 
+  setLinkPickHandler(handler) {
+    this.linkPickHandler = handler;
+  }
+
+  setPendingHighlight(id) {
+    this.pendingHighlightId = id;
+    this.render();
+  }
+
   render() {
     this.layerEl.replaceChildren();
     if (!this.floorId) return;
@@ -48,6 +60,7 @@ export class ComponentsLayer {
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("component");
     if (component.id === this.selectedId) group.classList.add("component--selected");
+    if (component.id === this.pendingHighlightId) group.classList.add("component--link-pending");
     group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})`);
     group.dataset.componentId = component.id;
 
@@ -114,6 +127,10 @@ export class ComponentsLayer {
 
   onComponentPointerDown(event, component) {
     event.stopPropagation();
+    if (this.linkPickHandler) {
+      this.linkPickHandler(component);
+      return;
+    }
     this.select(component.id);
     this.dragState = {
       pointerId: event.pointerId,
@@ -196,6 +213,13 @@ export class ComponentsLayer {
 
   select(id) {
     this.selectedId = id;
+    this.render();
+    this.onSelect?.(id);
+  }
+
+  clearSelection() {
+    if (!this.selectedId) return;
+    this.selectedId = null;
     this.render();
   }
 

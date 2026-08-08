@@ -31,6 +31,7 @@
   --color-circuit-eclairage: #2563eb;
   --color-circuit-prise: #16a34a;
   --color-circuit-alimentation: #dc2626;
+  --color-circuit-commande: #7c3aed;
 
   /* Typographie */
   --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;

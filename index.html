@@ -33,6 +33,11 @@
     <header class="toolbar">
       <h1 class="toolbar__title">Éditeur de schémas électriques</h1>
       <select id="floor-select" class="floor-select" aria-label="Étage affiché"></select>
+      <div class="toolbar__links" role="group" aria-label="Tracer une liaison">
+        <label class="toolbar__links-label" for="link-type-select">Liaison</label>
+        <select id="link-type-select" class="floor-select" aria-label="Type de liaison"></select>
+        <button type="button" id="link-tool-toggle" class="toolbar__button">Tracer</button>
+      </div>
     </header>
     <div class="workspace">
       <aside id="palette" class="palette" aria-label="Palette de composants"></aside>
@@ -122,8 +127,8 @@
             </symbol>
           </defs>
           <g id="plan-layer"></g>
-          <g id="components-layer"></g>
           <g id="links-layer"></g>
+          <g id="components-layer"></g>
         </svg>
         <p id="stage-error" class="stage__error" hidden></p>
       </main>

@@ -3,7 +3,9 @@ import { Stage } from "./editor/stage.js";
 import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
 import { ComponentsLayer } from "./editor/componentsLayer.js";
+import { LinksLayer } from "./editor/linksLayer.js";
 import { MenuBar } from "./editor/menuBar.js";
+import { linkTypes } from "./catalog/linkTypes.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 
 const svgEl = document.querySelector("#stage-svg");
@@ -11,7 +13,10 @@ const errorEl = document.querySelector("#stage-error");
 const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
+const linksLayerEl = document.querySelector("#links-layer");
 const undoMenuButton = document.querySelector("#menu-undo");
+const linkTypeSelectEl = document.querySelector("#link-type-select");
+const linkToolToggleEl = document.querySelector("#link-tool-toggle");
 
 for (const floor of floors) {
   const option = document.createElement("option");
@@ -20,8 +25,20 @@ for (const floor of floors) {
   floorSelectEl.appendChild(option);
 }
 
+for (const linkType of linkTypes) {
+  const option = document.createElement("option");
+  option.value = linkType.type;
+  option.textContent = linkType.label;
+  linkTypeSelectEl.appendChild(option);
+}
+
 const stage = new Stage(svgEl, errorEl);
 const store = new Store();
+
+// Déclarée avant d'être assignée : les deux calques ont besoin de se référencer
+// mutuellement pour que sélectionner l'un désélectionne l'autre.
+let linksLayer;
+
 const componentsLayer = new ComponentsLayer({
   layerEl: componentsLayerEl,
   stage,
@@ -30,10 +47,22 @@ const componentsLayer = new ComponentsLayer({
     palette.setArmed(null);
     componentsLayer.armPlacement(null);
   },
+  onSelect: () => linksLayer.clearSelection(),
 });
 const palette = new Palette({
   containerEl: paletteEl,
-  onArm: (type) => componentsLayer.armPlacement(type),
+  onArm: (type) => {
+    disarmLinking();
+    componentsLayer.armPlacement(type);
+  },
+});
+
+linksLayer = new LinksLayer({
+  layerEl: linksLayerEl,
+  stage,
+  store,
+  componentsLayer,
+  onSelect: () => componentsLayer.clearSelection(),
 });
 
 function refreshUndoState() {
@@ -42,6 +71,7 @@ function refreshUndoState() {
 
 store.onChange(() => {
   componentsLayer.render();
+  linksLayer.render();
   refreshUndoState();
 });
 
@@ -49,6 +79,33 @@ floorSelectEl.addEventListener("change", () => {
   const floor = getFloorById(floorSelectEl.value);
   stage.loadFloor(floor);
   componentsLayer.setFloor(floor.id);
+  linksLayer.setFloor(floor.id);
+});
+
+let linkingArmed = false;
+function disarmLinking() {
+  if (!linkingArmed) return;
+  linkingArmed = false;
+  linkToolToggleEl.classList.remove("toolbar__button--armed");
+  stage.svgEl.classList.remove("stage__svg--linking");
+  linksLayer.stopLinking();
+}
+
+linkToolToggleEl.addEventListener("click", () => {
+  if (linkingArmed) {
+    disarmLinking();
+    return;
+  }
+  palette.setArmed(null);
+  componentsLayer.armPlacement(null);
+  linkingArmed = true;
+  linkToolToggleEl.classList.add("toolbar__button--armed");
+  stage.svgEl.classList.add("stage__svg--linking");
+  linksLayer.startLinking(linkTypeSelectEl.value);
+});
+
+linkTypeSelectEl.addEventListener("change", () => {
+  if (linkingArmed) linksLayer.startLinking(linkTypeSelectEl.value);
 });
 
 const menuBar = new MenuBar([
@@ -72,4 +129,5 @@ const initialFloor = floors[0];
 floorSelectEl.value = initialFloor.id;
 stage.loadFloor(initialFloor);
 componentsLayer.setFloor(initialFloor.id);
+linksLayer.setFloor(initialFloor.id);
 refreshUndoState();

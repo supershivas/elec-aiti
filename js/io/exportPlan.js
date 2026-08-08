@@ -106,11 +106,14 @@ function buildExportSvgString(stage, floor, store) {
     .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .component__label { fill: currentColor; font: 600 9px sans-serif; }
     .component__badge { fill: currentColor; font: 600 6px sans-serif; }
+    .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
   `;
   clone.insertBefore(style, clone.firstChild);
 
   // La sélection est un état d'édition, pas une information du schéma exporté
-  clone.querySelectorAll(".component--selected").forEach((el) => el.classList.remove("component--selected"));
+  clone.querySelectorAll(".component--selected, .liaison--selected").forEach((el) => {
+    el.classList.remove("component--selected", "liaison--selected");
+  });
 
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
     .map((type) => getCatalogEntry(type))
