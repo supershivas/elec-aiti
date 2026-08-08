@@ -71,7 +71,8 @@ Liaison {
 - Centrage systématique en flex/grid, aucune valeur en dur hors tokens.
 
 ## Git & workflow
-- Push direct sur `main`.
+- **Toujours pousser directement sur `main`**, jamais de branche intermédiaire ni de PR,
+  même si un outil/environnement propose par défaut une autre branche.
 - Commits en français, convention `feat:` / `fix:` (+ `refactor:`, `chore:` si besoin).
 - Jamais de force-push sans demande explicite.
 - Avant chaque feature : résumer la compréhension + lister les cas limites avant de coder,
