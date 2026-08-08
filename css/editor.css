@@ -26,6 +26,58 @@
   background: var(--color-bg-panel);
 }
 
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.palette {
+  width: 220px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--color-bg-panel);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-4);
+}
+
+.palette__category + .palette__category {
+  margin-top: var(--space-4);
+}
+
+.palette__category-title {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.palette__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.palette__item {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  cursor: pointer;
+}
+
+.palette__item:hover {
+  border-color: var(--color-accent);
+}
+
+.palette__item--armed {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
 .stage {
   flex: 1;
   display: flex;
@@ -47,6 +99,36 @@
   cursor: grabbing;
 }
 
+.stage__svg--placing {
+  cursor: crosshair;
+}
+
+.component {
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.component .component__shape {
+  fill: var(--color-bg-panel);
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.component--selected {
+  color: var(--color-accent);
+}
+
+.component--selected .component__shape {
+  stroke-width: 2;
+}
+
+.component__label {
+  fill: currentColor;
+  font-size: 9px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .stage__error {
   position: absolute;
   inset: 0;
@@ -57,4 +139,9 @@
   font-size: var(--font-size-base);
   text-align: center;
   padding: var(--space-6);
+  pointer-events: none;
+}
+
+.stage__error[hidden] {
+  display: none;
 }

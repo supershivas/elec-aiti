@@ -13,6 +13,7 @@ export class Stage {
     this.viewBox = { ...this.baseViewBox };
     this.isPanning = false;
     this.panStart = null;
+    this.placementMode = false;
 
     this.svgEl.addEventListener("wheel", (event) => this.onWheel(event), { passive: false });
     this.svgEl.addEventListener("pointerdown", (event) => this.onPointerDown(event));
@@ -88,7 +89,12 @@ export class Stage {
     this.applyViewBox();
   }
 
+  setPlacementMode(enabled) {
+    this.placementMode = enabled;
+  }
+
   onPointerDown(event) {
+    if (this.placementMode || event.target.closest(".component")) return;
     this.isPanning = true;
     this.svgEl.setPointerCapture(event.pointerId);
     this.svgEl.classList.add("stage__svg--panning");
@@ -97,10 +103,10 @@ export class Stage {
 
   onPointerMove(event) {
     if (!this.isPanning) return;
-    const scaleX = this.viewBox.width / this.svgEl.clientWidth;
-    const scaleY = this.viewBox.height / this.svgEl.clientHeight;
-    const dx = (event.clientX - this.panStart.clientX) * scaleX;
-    const dy = (event.clientY - this.panStart.clientY) * scaleY;
+    const start = this.clientToViewBoxPoint(this.panStart.clientX, this.panStart.clientY);
+    const current = this.clientToViewBoxPoint(event.clientX, event.clientY);
+    const dx = current.x - start.x;
+    const dy = current.y - start.y;
     this.viewBox = {
       ...this.viewBox,
       x: this.panStart.viewBox.x - dx,
@@ -118,14 +124,16 @@ export class Stage {
     }
   }
 
+  // Convertit un point écran en coordonnées du viewBox, en tenant compte du
+  // "letterboxing" (preserveAspectRatio="xMidYMid meet" par défaut) via la
+  // matrice native du SVG plutôt qu'un calcul manuel basé sur le rect CSS.
   clientToViewBoxPoint(clientX, clientY) {
-    const rect = this.svgEl.getBoundingClientRect();
-    const ratioX = (clientX - rect.left) / rect.width;
-    const ratioY = (clientY - rect.top) / rect.height;
-    return {
-      x: this.viewBox.x + ratioX * this.viewBox.width,
-      y: this.viewBox.y + ratioY * this.viewBox.height,
-    };
+    const point = this.svgEl.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    const ctm = this.svgEl.getScreenCTM();
+    const transformed = point.matrixTransform(ctm.inverse());
+    return { x: transformed.x, y: transformed.y };
   }
 }
 
