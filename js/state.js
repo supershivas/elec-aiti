@@ -41,8 +41,8 @@ export class Store {
     return this.state.components.filter((component) => component.floorId === floorId);
   }
 
-  addComponent({ type, floorId, x, y }) {
-    const component = { id: createId(), type, floorId, x, y, rotation: 0 };
+  addComponent({ type, floorId, x, y, ...rest }) {
+    const component = { id: createId(), type, floorId, x, y, rotation: 0, ...rest };
     this.state.components.push(component);
     this.notify();
     return component;

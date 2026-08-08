@@ -13,7 +13,6 @@ export class Stage {
     this.viewBox = { ...this.baseViewBox };
     this.isPanning = false;
     this.panStart = null;
-    this.placementMode = false;
 
     this.svgEl.addEventListener("wheel", (event) => this.onWheel(event), { passive: false });
     this.svgEl.addEventListener("pointerdown", (event) => this.onPointerDown(event));
@@ -89,12 +88,10 @@ export class Stage {
     this.applyViewBox();
   }
 
-  setPlacementMode(enabled) {
-    this.placementMode = enabled;
-  }
-
   onPointerDown(event) {
-    if (this.placementMode || event.target.closest(".component")) return;
+    // Le pan reste possible même avec un outil de pose armé : c'est le geste
+    // (clic vs glissé) qui décide, voir ComponentsLayer.onStagePointerUp.
+    if (event.target.closest(".component")) return;
     this.isPanning = true;
     this.svgEl.setPointerCapture(event.pointerId);
     this.svgEl.classList.add("stage__svg--panning");

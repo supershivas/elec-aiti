@@ -20,7 +20,7 @@ export const catalog = [
   { type: "point_lumineux_spot", label: "Spot", category: "Éclairage", shape: "symbol", symbolId: "spot" },
 
   { type: "interrupteur_simple", label: "Interrupteur simple", category: "Commandes", shape: "symbol", symbolId: "interrupteur" },
-  { type: "va_et_vient", label: "Va-et-vient", category: "Commandes", shape: "symbol", symbolId: "va-et-vient" },
+  { type: "va_et_vient", label: "Va-et-vient", category: "Commandes", shape: "symbol", symbolId: "va-et-vient", width: 67, height: 67 },
   { type: "poussoir", label: "Poussoir", category: "Commandes", shape: "symbol", symbolId: "poussoir" },
   { type: "variateur", label: "Variateur", category: "Commandes", shape: "symbol", symbolId: "variateur" },
 
@@ -34,6 +34,9 @@ export const catalog = [
   { type: "electromenager_convecteur", label: "Convecteur électrique", category: "Électroménager", shape: "box", abbr: "CV", width: 60, height: 15 },
   { type: "electromenager_seche_serviette", label: "Sèche-serviette", category: "Électroménager", shape: "box", abbr: "SS", width: 50, height: 100 },
   { type: "vmc", label: "VMC", category: "Électroménager", shape: "symbol", symbolId: "vmc" },
+
+  // Rectangle libre : taille et nom demandés à la pose (voir ComponentsLayer.placeComponent)
+  { type: "meuble_personnalise", label: "Meuble personnalisé", category: "Mobilier", shape: "box", customizable: true, width: 60, height: 60 },
 ];
 
 export function getCatalogEntry(type) {

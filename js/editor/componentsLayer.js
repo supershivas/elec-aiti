@@ -3,6 +3,7 @@ import { getCatalogEntry } from "../catalog/components.js";
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
 const HITBOX_PADDING = 16;
+const CLICK_THRESHOLD_PX = 6;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -15,6 +16,7 @@ export class ComponentsLayer {
     this.armedType = null;
     this.selectedId = null;
     this.dragState = null;
+    this.placementStart = null;
 
     this.stage.svgEl.addEventListener("pointerdown", (event) => this.onStagePointerDown(event));
     this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
@@ -30,7 +32,6 @@ export class ComponentsLayer {
 
   armPlacement(type) {
     this.armedType = type;
-    this.stage.setPlacementMode(Boolean(type));
     this.stage.svgEl.classList.toggle("stage__svg--placing", Boolean(type));
   }
 
@@ -50,8 +51,8 @@ export class ComponentsLayer {
     group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})`);
     group.dataset.componentId = component.id;
 
-    const width = entry.width ?? DEFAULT_SYMBOL_SIZE;
-    const height = entry.height ?? DEFAULT_SYMBOL_SIZE;
+    const width = component.width ?? entry.width ?? DEFAULT_SYMBOL_SIZE;
+    const height = component.height ?? entry.height ?? DEFAULT_SYMBOL_SIZE;
 
     // Zone de clic invisible, plus grande que le pictogramme visible : les symboles
     // fins (traits d'interrupteur, cercles ouverts) sont sinon très difficiles à sélectionner.
@@ -75,7 +76,7 @@ export class ComponentsLayer {
       group.appendChild(rect);
 
       const text = document.createElementNS(SVG_NS, "text");
-      text.textContent = entry.abbr;
+      text.textContent = component.label || entry.abbr || entry.label;
       text.classList.add("component__label");
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
@@ -126,10 +127,10 @@ export class ComponentsLayer {
 
   onStagePointerDown(event) {
     if (!this.armedType || !this.floorId) return;
-    const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
-    const component = this.store.addComponent({ type: this.armedType, floorId: this.floorId, x: point.x, y: point.y });
-    this.select(component.id);
-    this.onPlacementConsumed?.();
+    if (event.target.closest(".component")) return;
+    // On ne pose pas encore ici : un clic pose, un glissé doit pouvoir déplacer
+    // la vue (pan) même avec un outil armé. Voir onStagePointerUp.
+    this.placementStart = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
   }
 
   onStagePointerMove(event) {
@@ -144,8 +145,45 @@ export class ComponentsLayer {
   }
 
   onStagePointerUp(event) {
-    if (!this.dragState || this.dragState.pointerId !== event.pointerId) return;
-    this.dragState = null;
+    if (this.dragState && this.dragState.pointerId === event.pointerId) {
+      this.dragState = null;
+      return;
+    }
+    if (!this.placementStart || this.placementStart.pointerId !== event.pointerId) return;
+    const { x, y } = this.placementStart;
+    this.placementStart = null;
+    const movedPx = Math.hypot(event.clientX - x, event.clientY - y);
+    if (movedPx < CLICK_THRESHOLD_PX) {
+      this.placeComponent(event);
+    }
+  }
+
+  placeComponent(event) {
+    const entry = getCatalogEntry(this.armedType);
+    const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
+    const extra = {};
+
+    if (entry.customizable) {
+      const widthInput = prompt("Largeur du meuble (cm) :", entry.width);
+      if (widthInput === null) return;
+      const heightInput = prompt("Profondeur du meuble (cm) :", entry.height);
+      if (heightInput === null) return;
+      const nameInput = prompt("Nom du meuble :", entry.label);
+      if (nameInput === null) return;
+      extra.width = Math.max(1, Number(widthInput)) || entry.width;
+      extra.height = Math.max(1, Number(heightInput)) || entry.height;
+      extra.label = nameInput.trim() || entry.label;
+    }
+
+    const component = this.store.addComponent({
+      type: this.armedType,
+      floorId: this.floorId,
+      x: point.x,
+      y: point.y,
+      ...extra,
+    });
+    this.select(component.id);
+    this.onPlacementConsumed?.();
   }
 
   select(id) {

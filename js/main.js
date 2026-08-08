@@ -29,7 +29,7 @@ const componentsLayer = new ComponentsLayer({
   store,
   onPlacementConsumed: () => {
     palette.setArmed(null);
-    stage.setPlacementMode(false);
+    componentsLayer.armPlacement(null);
   },
 });
 const palette = new Palette({
