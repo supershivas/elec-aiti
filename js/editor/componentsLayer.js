@@ -2,6 +2,7 @@ import { getCatalogEntry } from "../catalog/components.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
+const HITBOX_PADDING = 16;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -51,6 +52,17 @@ export class ComponentsLayer {
 
     const width = entry.width ?? DEFAULT_SYMBOL_SIZE;
     const height = entry.height ?? DEFAULT_SYMBOL_SIZE;
+
+    // Zone de clic invisible, plus grande que le pictogramme visible : les symboles
+    // fins (traits d'interrupteur, cercles ouverts) sont sinon très difficiles à sélectionner.
+    const hitboxSize = Math.max(width, height) + HITBOX_PADDING;
+    const hitbox = document.createElementNS(SVG_NS, "rect");
+    hitbox.setAttribute("x", -hitboxSize / 2);
+    hitbox.setAttribute("y", -hitboxSize / 2);
+    hitbox.setAttribute("width", hitboxSize);
+    hitbox.setAttribute("height", hitboxSize);
+    hitbox.setAttribute("fill", "transparent");
+    group.appendChild(hitbox);
 
     if (entry.shape === "box") {
       const rect = document.createElementNS(SVG_NS, "rect");

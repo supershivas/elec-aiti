@@ -13,6 +13,12 @@
     <header class="toolbar">
       <h1 class="toolbar__title">Éditeur de schémas électriques</h1>
       <select id="floor-select" class="floor-select" aria-label="Étage affiché"></select>
+      <div class="toolbar__export" role="group" aria-label="Exporter le plan">
+        <span class="toolbar__export-label">Exporter</span>
+        <button type="button" id="export-svg" class="toolbar__button">SVG</button>
+        <button type="button" id="export-png" class="toolbar__button">PNG</button>
+        <button type="button" id="export-pdf" class="toolbar__button">PDF</button>
+      </div>
     </header>
     <div class="workspace">
       <aside id="palette" class="palette" aria-label="Palette de composants"></aside>
