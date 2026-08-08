@@ -8,12 +8,20 @@ Hébergement : GitHub Pages (site statique, aucune donnée serveur).
 ## Rendu
 - **SVG natif**, pas de canvas 2D. Les plans fournis (`aiti-elec_RDC.svg`,
   `aiti-elec_1er étage.svg`) sont déjà vectoriels, même viewBox `0 0 1558 801.32` sur les
-  deux étages, avec calques `murs` / `pieces` / `equipements`.
+  deux étages, avec calques `murs` / `pieces` / `equipements`. **Échelle : 1 unité du
+  viewBox = 1 cm réel** (ex: un évier de cuisine/sdb du plan fait ~50x60 unités).
   On les charge via `fetch` + injection inline dans un SVG hôte (pour pouvoir styler/masquer
   les calques si besoin). Le SVG hôte contient : calque plan de fond (readonly) + calque
   composants + calque liaisons.
   Avantages : sélection/déplacement/rotation natifs des symboles, zoom net à tout niveau,
   export vectoriel trivial, pas de dépendance lourde.
+- Composants : les symboles de position (prises, interrupteurs, points lumineux) restent des
+  pictogrammes conventionnels de taille fixe (non mis à l'échelle réelle). L'électroménager et
+  le tableau électrique, eux, sont dimensionnés en cm réels (ex: four/plaque/lave-linge/
+  lave-vaisselle 60x60, chauffe-eau 50x50, tableau 60x40) pour donner une idée fidèle de
+  l'encombrement sur le plan.
+- Tous les composants posés sont **rouges** par défaut (`--color-component`), pour bien se
+  distinguer des traits du plan de fond ; le bleu accent reste réservé à la sélection.
 
 ## Stack UI
 **Vanilla JS en modules ES**, pas de framework. Pas de bundler — fichiers servis tels quels
@@ -112,9 +120,11 @@ Liaison {
 ```
 
 ## Catalogue de composants initial (v1)
-Prises (simple, double, étanche), points lumineux (plafonnier, applique, spot),
+Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/
+lave-vaisselle pour les circuits dédiés), points lumineux (plafonnier, applique, spot),
 interrupteur simple, va-et-vient, poussoir, variateur, tableau électrique,
-électroménager (four, plaque, lave-linge, lave-vaisselle, chauffe-eau), VMC.
+électroménager (four, plaque, lave-linge, lave-vaisselle, chauffe-eau/cumulus, convecteur
+électrique, sèche-serviette), VMC.
 Catalogue data-driven (`catalog/components.js`) : ajouter un type = ajouter une entrée +
 un symbole, sans toucher au reste du code.
 

@@ -1,26 +1,39 @@
 // Catalogue des types de composants disponibles dans la palette (data-driven)
+// Le plan de fond est à l'échelle 1px = 1cm : les composants qui représentent un
+// vrai appareil (électroménager, tableau) sont dimensionnés en cm réels via
+// width/height. Les symboles de position (prises, interrupteurs, points lumineux)
+// restent des pictogrammes conventionnels de taille fixe (non mis à l'échelle).
+//
+// shape: 'symbol' -> <use> vers un <symbol> défini dans index.html
+//        'box'     -> rectangle + abréviation texte (pas de pictogramme dédié)
 export const catalog = [
-  { type: "prise", label: "Prise simple", category: "Prises", symbolId: "prise" },
-  { type: "prise_double", label: "Prise double", category: "Prises", symbolId: "prise-double" },
-  { type: "prise_etanche", label: "Prise étanche", category: "Prises", symbolId: "prise-etanche" },
+  { type: "prise", label: "Prise simple", category: "Prises", shape: "symbol", symbolId: "prise" },
+  { type: "prise_double", label: "Prise double", category: "Prises", shape: "symbol", symbolId: "prise-double" },
+  { type: "prise_etanche", label: "Prise étanche", category: "Prises", shape: "symbol", symbolId: "prise-etanche" },
+  { type: "prise_specialisee_plaque", label: "Prise spécialisée plaque de cuisson", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "PL" },
+  { type: "prise_specialisee_four", label: "Prise spécialisée four", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "F" },
+  { type: "prise_specialisee_lave_linge", label: "Prise spécialisée lave-linge", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LL" },
+  { type: "prise_specialisee_lave_vaisselle", label: "Prise spécialisée lave-vaisselle", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LV" },
 
-  { type: "point_lumineux", label: "Plafonnier", category: "Éclairage", symbolId: "plafonnier" },
-  { type: "point_lumineux_applique", label: "Applique murale", category: "Éclairage", symbolId: "applique" },
-  { type: "point_lumineux_spot", label: "Spot", category: "Éclairage", symbolId: "spot" },
+  { type: "point_lumineux", label: "Plafonnier", category: "Éclairage", shape: "symbol", symbolId: "plafonnier" },
+  { type: "point_lumineux_applique", label: "Applique murale", category: "Éclairage", shape: "symbol", symbolId: "applique" },
+  { type: "point_lumineux_spot", label: "Spot", category: "Éclairage", shape: "symbol", symbolId: "spot" },
 
-  { type: "interrupteur_simple", label: "Interrupteur simple", category: "Commandes", symbolId: "interrupteur" },
-  { type: "va_et_vient", label: "Va-et-vient", category: "Commandes", symbolId: "va-et-vient" },
-  { type: "poussoir", label: "Poussoir", category: "Commandes", symbolId: "poussoir" },
-  { type: "variateur", label: "Variateur", category: "Commandes", symbolId: "variateur" },
+  { type: "interrupteur_simple", label: "Interrupteur simple", category: "Commandes", shape: "symbol", symbolId: "interrupteur" },
+  { type: "va_et_vient", label: "Va-et-vient", category: "Commandes", shape: "symbol", symbolId: "va-et-vient" },
+  { type: "poussoir", label: "Poussoir", category: "Commandes", shape: "symbol", symbolId: "poussoir" },
+  { type: "variateur", label: "Variateur", category: "Commandes", shape: "symbol", symbolId: "variateur" },
 
-  { type: "tableau_electrique", label: "Tableau électrique", category: "Tableau", symbolId: "tableau" },
+  { type: "tableau_electrique", label: "Tableau électrique", category: "Tableau", shape: "symbol", symbolId: "tableau", width: 60, height: 40 },
 
-  { type: "electromenager_four", label: "Four", category: "Électroménager", symbolId: "electromenager", abbr: "F" },
-  { type: "electromenager_plaque", label: "Plaque de cuisson", category: "Électroménager", symbolId: "electromenager", abbr: "PL" },
-  { type: "electromenager_lave_linge", label: "Lave-linge", category: "Électroménager", symbolId: "electromenager", abbr: "LL" },
-  { type: "electromenager_lave_vaisselle", label: "Lave-vaisselle", category: "Électroménager", symbolId: "electromenager", abbr: "LV" },
-  { type: "electromenager_chauffe_eau", label: "Chauffe-eau", category: "Électroménager", symbolId: "electromenager", abbr: "CE" },
-  { type: "vmc", label: "VMC", category: "Électroménager", symbolId: "vmc" },
+  { type: "electromenager_four", label: "Four", category: "Électroménager", shape: "box", abbr: "F", width: 60, height: 60 },
+  { type: "electromenager_plaque", label: "Plaque de cuisson", category: "Électroménager", shape: "box", abbr: "PL", width: 60, height: 60 },
+  { type: "electromenager_lave_linge", label: "Lave-linge", category: "Électroménager", shape: "box", abbr: "LL", width: 60, height: 60 },
+  { type: "electromenager_lave_vaisselle", label: "Lave-vaisselle", category: "Électroménager", shape: "box", abbr: "LV", width: 60, height: 60 },
+  { type: "electromenager_chauffe_eau", label: "Chauffe-eau (cumulus)", category: "Électroménager", shape: "box", abbr: "CE", width: 50, height: 50 },
+  { type: "electromenager_convecteur", label: "Convecteur électrique", category: "Électroménager", shape: "box", abbr: "CV", width: 60, height: 15 },
+  { type: "electromenager_seche_serviette", label: "Sèche-serviette", category: "Électroménager", shape: "box", abbr: "SS", width: 50, height: 100 },
+  { type: "vmc", label: "VMC", category: "Électroménager", shape: "symbol", symbolId: "vmc" },
 ];
 
 export function getCatalogEntry(type) {

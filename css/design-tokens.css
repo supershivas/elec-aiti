@@ -23,6 +23,10 @@
   --color-accent: #2563eb;
   --color-accent-hover: #d97706;
 
+  /* Composants posés sur le plan : rouge pour bien se distinguer du fond */
+  --color-component: #dc2626;
+  --color-component-selected: var(--color-accent);
+
   /* Couleurs de liaison par type de circuit */
   --color-circuit-eclairage: #2563eb;
   --color-circuit-prise: #16a34a;

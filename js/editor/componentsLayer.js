@@ -1,7 +1,7 @@
 import { getCatalogEntry } from "../catalog/components.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const SYMBOL_SIZE = 24;
+const DEFAULT_SYMBOL_SIZE = 24;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -49,12 +49,15 @@ export class ComponentsLayer {
     group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})`);
     group.dataset.componentId = component.id;
 
-    if (entry.abbr) {
+    const width = entry.width ?? DEFAULT_SYMBOL_SIZE;
+    const height = entry.height ?? DEFAULT_SYMBOL_SIZE;
+
+    if (entry.shape === "box") {
       const rect = document.createElementNS(SVG_NS, "rect");
-      rect.setAttribute("x", -SYMBOL_SIZE / 2);
-      rect.setAttribute("y", -SYMBOL_SIZE / 2);
-      rect.setAttribute("width", SYMBOL_SIZE);
-      rect.setAttribute("height", SYMBOL_SIZE);
+      rect.setAttribute("x", -width / 2);
+      rect.setAttribute("y", -height / 2);
+      rect.setAttribute("width", width);
+      rect.setAttribute("height", height);
       rect.setAttribute("rx", 2);
       rect.classList.add("component__shape");
       group.appendChild(rect);
@@ -68,12 +71,24 @@ export class ComponentsLayer {
     } else {
       const use = document.createElementNS(SVG_NS, "use");
       use.setAttribute("href", `#sym-${entry.symbolId}`);
-      use.setAttribute("x", -SYMBOL_SIZE / 2);
-      use.setAttribute("y", -SYMBOL_SIZE / 2);
-      use.setAttribute("width", SYMBOL_SIZE);
-      use.setAttribute("height", SYMBOL_SIZE);
+      use.setAttribute("x", -width / 2);
+      use.setAttribute("y", -height / 2);
+      use.setAttribute("width", width);
+      use.setAttribute("height", height);
       use.classList.add("component__shape");
       group.appendChild(use);
+
+      // Prises spécialisées : le symbole reste un pictogramme de prise standard,
+      // l'abréviation identifie juste le circuit dédié (four, plaque, ...)
+      if (entry.abbr) {
+        const badge = document.createElementNS(SVG_NS, "text");
+        badge.textContent = entry.abbr;
+        badge.classList.add("component__badge");
+        badge.setAttribute("x", width / 2 - 1);
+        badge.setAttribute("y", -height / 2 + 6);
+        badge.setAttribute("text-anchor", "end");
+        group.appendChild(badge);
+      }
     }
 
     const title = document.createElementNS(SVG_NS, "title");

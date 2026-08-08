@@ -104,7 +104,7 @@
 }
 
 .component {
-  color: var(--color-text);
+  color: var(--color-component);
   cursor: pointer;
 }
 
@@ -115,7 +115,7 @@
 }
 
 .component--selected {
-  color: var(--color-accent);
+  color: var(--color-component-selected);
 }
 
 .component--selected .component__shape {
@@ -125,6 +125,13 @@
 .component__label {
   fill: currentColor;
   font-size: 9px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.component__badge {
+  fill: currentColor;
+  font-size: 6px;
   font-weight: 600;
   pointer-events: none;
 }
