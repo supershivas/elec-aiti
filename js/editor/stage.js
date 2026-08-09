@@ -13,6 +13,7 @@ export class Stage {
     this.viewBox = { ...this.baseViewBox };
     this.isPanning = false;
     this.panStart = null;
+    this.onViewChange = null;
 
     this.svgEl.addEventListener("wheel", (event) => this.onWheel(event), { passive: false });
     this.svgEl.addEventListener("pointerdown", (event) => this.onPointerDown(event));
@@ -57,6 +58,7 @@ export class Stage {
   applyViewBox() {
     const { x, y, width, height } = this.viewBox;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
+    this.onViewChange?.();
   }
 
   showError(message) {

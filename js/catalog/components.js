@@ -33,7 +33,12 @@ export const catalog = [
   { type: "electromenager_chauffe_eau", label: "Chauffe-eau (cumulus)", category: "Électroménager", shape: "box", abbr: "CE", width: 50, height: 50 },
   { type: "electromenager_convecteur", label: "Convecteur électrique", category: "Électroménager", shape: "box", abbr: "CV", width: 60, height: 15 },
   { type: "electromenager_seche_serviette", label: "Sèche-serviette", category: "Électroménager", shape: "box", abbr: "SS", width: 50, height: 100 },
+  { type: "electromenager_frigo", label: "Réfrigérateur", category: "Électroménager", shape: "box", abbr: "FR", width: 60, height: 60 },
   { type: "vmc", label: "VMC", category: "Électroménager", shape: "symbol", symbolId: "vmc" },
+
+  // Pas électriques, mais utiles comme repères sur le plan (encombrement réel)
+  { type: "sanitaire_wc", label: "Toilettes (WC)", category: "Sanitaire", shape: "box", abbr: "WC", width: 40, height: 60 },
+  { type: "sanitaire_lavabo", label: "Lavabo", category: "Sanitaire", shape: "box", abbr: "LB", width: 55, height: 45 },
 
   // Rectangle libre : taille et nom demandés à la pose (voir ComponentsLayer.placeComponent)
   { type: "meuble_personnalise", label: "Meuble personnalisé", category: "Mobilier", shape: "box", customizable: true, width: 60, height: 60 },

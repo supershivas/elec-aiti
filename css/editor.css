@@ -4,18 +4,18 @@
   height: 100%;
 }
 
-.toolbar {
+.topbar {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-panel);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-1) var(--space-4);
+  background: var(--color-text);
 }
 
-.toolbar__title {
-  font-size: var(--font-size-lg);
+.topbar__title {
+  font-size: var(--font-size-base);
   font-weight: 600;
+  color: #fff;
   margin: 0;
 }
 
@@ -24,13 +24,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .toolbar__links {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
 }
 
 .toolbar__links-label {
@@ -43,6 +43,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
 
@@ -60,8 +61,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-4);
-  background: var(--color-text);
 }
 
 .menubar__item {
@@ -313,6 +312,50 @@
   cursor: crosshair;
 }
 
+.stage__overlay {
+  position: absolute;
+  z-index: 5;
+}
+
+.stage__overlay--top-left {
+  top: var(--space-3);
+  left: var(--space-3);
+}
+
+.stage__overlay--top-right {
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.stage__overlay--bottom-left {
+  left: var(--space-3);
+  bottom: var(--space-3);
+}
+
+.scale-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+
+.scale-bar__line {
+  display: block;
+  height: 6px;
+  border-left: 2px solid var(--color-text);
+  border-right: 2px solid var(--color-text);
+  border-bottom: 2px solid var(--color-text);
+}
+
+.scale-bar__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.75);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
 .component {
   color: var(--color-component);
   cursor: pointer;
@@ -353,6 +396,11 @@
   stroke-width: 3;
 }
 
+.component--link-target .component__shape {
+  stroke: var(--color-circuit-prise);
+  stroke-width: 3;
+}
+
 .liaison {
   cursor: pointer;
 }
@@ -361,6 +409,13 @@
   stroke: var(--liaison-color, var(--color-text-muted));
   stroke-width: 3;
   stroke-linecap: round;
+}
+
+.liaison-preview {
+  stroke: var(--liaison-color, var(--color-text-muted));
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
 }
 
 .liaison--selected .liaison__line {

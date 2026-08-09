@@ -126,7 +126,9 @@ Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge
 lave-vaisselle pour les circuits dédiés), points lumineux (plafonnier, applique, spot),
 interrupteur simple, va-et-vient, poussoir, variateur, tableau électrique,
 électroménager (four, plaque, lave-linge, lave-vaisselle, chauffe-eau/cumulus, convecteur
-électrique, sèche-serviette), VMC.
+électrique, sèche-serviette, réfrigérateur), VMC, sanitaire (toilettes, lavabo — pas
+électriques mais utiles comme repères d'encombrement), meuble personnalisé (taille/nom
+libres, demandés à la pose).
 Catalogue data-driven (`catalog/components.js`) : ajouter un type = ajouter une entrée +
 un symbole, sans toucher au reste du code.
 

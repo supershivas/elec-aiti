@@ -10,42 +10,48 @@
 </head>
 <body>
   <div class="app">
-    <nav class="menubar" aria-label="Menu principal">
-      <div class="menubar__item">
-        <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
-        <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
-          <button type="button" class="menubar__action" id="menu-save-project" role="menuitem">Enregistrer le projet (.aiti)</button>
-          <button type="button" class="menubar__action" id="menu-open-project" role="menuitem">Ouvrir un projet (.aiti)</button>
-          <input type="file" id="import-file-input" accept=".aiti" hidden />
-          <hr class="menubar__separator" />
-          <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter en SVG</button>
-          <button type="button" class="menubar__action" id="menu-export-png" role="menuitem">Exporter en PNG</button>
-          <button type="button" class="menubar__action" id="menu-export-pdf" role="menuitem">Exporter en PDF</button>
-          <hr class="menubar__separator" />
-          <button type="button" class="menubar__action" id="menu-print" role="menuitem">Imprimer</button>
+    <header class="topbar">
+      <h1 class="topbar__title">Éditeur de schémas électriques</h1>
+      <nav class="menubar" aria-label="Menu principal">
+        <div class="menubar__item">
+          <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
+          <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
+            <button type="button" class="menubar__action" id="menu-save-project" role="menuitem">Enregistrer le projet (.aiti)</button>
+            <button type="button" class="menubar__action" id="menu-open-project" role="menuitem">Ouvrir un projet (.aiti)</button>
+            <input type="file" id="import-file-input" accept=".aiti" hidden />
+            <hr class="menubar__separator" />
+            <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter en SVG</button>
+            <button type="button" class="menubar__action" id="menu-export-png" role="menuitem">Exporter en PNG</button>
+            <button type="button" class="menubar__action" id="menu-export-pdf" role="menuitem">Exporter en PDF</button>
+            <hr class="menubar__separator" />
+            <button type="button" class="menubar__action" id="menu-print" role="menuitem">Imprimer</button>
+          </div>
         </div>
-      </div>
-      <div class="menubar__item">
-        <button type="button" class="menubar__trigger" id="menu-edit-trigger" aria-haspopup="true" aria-expanded="false">Édition</button>
-        <div class="menubar__dropdown" id="menu-edit-dropdown" hidden role="menu">
-          <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler</button>
-          <hr class="menubar__separator" />
-          <button type="button" class="menubar__action menubar__action--danger" id="menu-clear" role="menuitem">Effacer tout le plan</button>
+        <div class="menubar__item">
+          <button type="button" class="menubar__trigger" id="menu-edit-trigger" aria-haspopup="true" aria-expanded="false">Édition</button>
+          <div class="menubar__dropdown" id="menu-edit-dropdown" hidden role="menu">
+            <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler</button>
+            <hr class="menubar__separator" />
+            <button type="button" class="menubar__action menubar__action--danger" id="menu-clear" role="menuitem">Effacer tout le plan</button>
+          </div>
         </div>
-      </div>
-    </nav>
-    <header class="toolbar">
-      <h1 class="toolbar__title">Éditeur de schémas électriques</h1>
-      <select id="floor-select" class="floor-select" aria-label="Étage affiché"></select>
-      <div class="toolbar__links" role="group" aria-label="Tracer une liaison">
-        <label class="toolbar__links-label" for="link-type-select">Liaison</label>
-        <select id="link-type-select" class="floor-select" aria-label="Type de liaison"></select>
-        <button type="button" id="link-tool-toggle" class="toolbar__button">Tracer</button>
-      </div>
+      </nav>
     </header>
     <div class="workspace">
       <aside id="palette" class="palette" aria-label="Palette de composants"></aside>
       <main class="stage">
+        <div class="stage__overlay stage__overlay--top-left">
+          <select id="floor-select" class="floor-select" aria-label="Étage affiché"></select>
+        </div>
+        <div class="stage__overlay stage__overlay--top-right toolbar__links" role="group" aria-label="Tracer une liaison">
+          <label class="toolbar__links-label" for="link-type-select">Liaison</label>
+          <select id="link-type-select" class="floor-select" aria-label="Type de liaison"></select>
+          <button type="button" id="link-tool-toggle" class="toolbar__button">Tracer</button>
+        </div>
+        <div class="stage__overlay stage__overlay--bottom-left scale-bar" id="scale-bar" aria-hidden="true">
+          <span class="scale-bar__line" id="scale-bar-line"></span>
+          <span class="scale-bar__label" id="scale-bar-label"></span>
+        </div>
         <svg id="stage-svg" class="stage__svg" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <!-- Symboles électriques simplifiés, viewBox 0 0 24 24, dessinés en currentColor -->

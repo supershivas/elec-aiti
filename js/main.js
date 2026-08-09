@@ -6,6 +6,7 @@ import { ComponentsLayer } from "./editor/componentsLayer.js";
 import { LinksLayer } from "./editor/linksLayer.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { MenuBar } from "./editor/menuBar.js";
+import { ScaleBar } from "./editor/scaleBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
@@ -21,6 +22,8 @@ const undoMenuButton = document.querySelector("#menu-undo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const linkToolToggleEl = document.querySelector("#link-tool-toggle");
 const importFileInputEl = document.querySelector("#import-file-input");
+const scaleBarLineEl = document.querySelector("#scale-bar-line");
+const scaleBarLabelEl = document.querySelector("#scale-bar-label");
 
 for (const floor of floors) {
   const option = document.createElement("option");
@@ -38,6 +41,7 @@ for (const linkType of linkTypes) {
 
 const stage = new Stage(svgEl, errorEl);
 const store = new Store();
+new ScaleBar({ stage, lineEl: scaleBarLineEl, labelEl: scaleBarLabelEl });
 
 // Déclarée avant d'être assignée : les calques ont besoin de se référencer
 // mutuellement pour que sélectionner l'un désélectionne l'autre.

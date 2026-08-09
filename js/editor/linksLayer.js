@@ -1,4 +1,5 @@
 import { getLinkType } from "../catalog/linkTypes.js";
+import { isEditingText } from "./domUtils.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
@@ -16,7 +17,9 @@ export class LinksLayer {
     this.floorId = null;
     this.selectedId = null;
     this.linking = null; // { type, fromId }
+    this.previewLineEl = null;
 
+    this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
     window.addEventListener("keydown", (event) => this.onKeyDown(event));
   }
 
@@ -49,8 +52,7 @@ export class LinksLayer {
 
     // Couleur résolue en dur (pas de var() vers le token) pour rester correcte
     // dans un export SVG/PNG autonome, qui n'a pas accès à design-tokens.css.
-    const resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(linkType.colorVar).trim();
-    group.style.setProperty("--liaison-color", resolvedColor);
+    group.style.setProperty("--liaison-color", this.resolveColor(linkType));
 
     const hit = document.createElementNS(SVG_NS, "line");
     hit.setAttribute("x1", from.x);
@@ -80,6 +82,10 @@ export class LinksLayer {
     return group;
   }
 
+  resolveColor(linkType) {
+    return getComputedStyle(document.documentElement).getPropertyValue(linkType.colorVar).trim();
+  }
+
   select(id) {
     this.selectedId = id;
     this.render();
@@ -106,6 +112,8 @@ export class LinksLayer {
     this.linking = null;
     this.componentsLayer.setLinkPickHandler(null);
     this.componentsLayer.setPendingHighlight(null);
+    this.componentsLayer.setSnapHighlight(null);
+    this.removePreviewLine();
   }
 
   pick(component) {
@@ -113,6 +121,7 @@ export class LinksLayer {
     if (!this.linking.fromId) {
       this.linking.fromId = component.id;
       this.componentsLayer.setPendingHighlight(component.id);
+      this.showPreviewLine();
       return;
     }
     if (this.linking.fromId === component.id) {
@@ -120,6 +129,8 @@ export class LinksLayer {
       // que de créer une liaison vers soi-même.
       this.linking.fromId = null;
       this.componentsLayer.setPendingHighlight(null);
+      this.componentsLayer.setSnapHighlight(null);
+      this.removePreviewLine();
       return;
     }
     this.store.addLiaison({
@@ -130,10 +141,50 @@ export class LinksLayer {
     });
     this.linking.fromId = null;
     this.componentsLayer.setPendingHighlight(null);
+    this.componentsLayer.setSnapHighlight(null);
+    this.removePreviewLine();
+  }
+
+  // Ligne pointillée qui suit le curseur pendant le tracé, avec "aimantation"
+  // sur le composant survolé (l'extrémité se cale pile sur son centre).
+  showPreviewLine() {
+    this.previewLineEl = document.createElementNS(SVG_NS, "line");
+    this.previewLineEl.classList.add("liaison-preview");
+    this.previewLineEl.style.setProperty("--liaison-color", this.resolveColor(getLinkType(this.linking.type)));
+    this.layerEl.appendChild(this.previewLineEl);
+  }
+
+  removePreviewLine() {
+    this.previewLineEl?.remove();
+    this.previewLineEl = null;
+  }
+
+  onStagePointerMove(event) {
+    if (!this.linking?.fromId || !this.previewLineEl) return;
+    const from = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === this.linking.fromId);
+    if (!from) return;
+
+    const hoverEl = event.target.closest(".component");
+    const hoverId = hoverEl?.dataset.componentId;
+    const snapId = hoverId && hoverId !== this.linking.fromId ? hoverId : null;
+    if (snapId !== this.componentsLayer.snapTargetId) {
+      this.componentsLayer.setSnapHighlight(snapId);
+    }
+
+    let end = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
+    if (snapId) {
+      const target = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === snapId);
+      if (target) end = { x: target.x, y: target.y };
+    }
+
+    this.previewLineEl.setAttribute("x1", from.x);
+    this.previewLineEl.setAttribute("y1", from.y);
+    this.previewLineEl.setAttribute("x2", end.x);
+    this.previewLineEl.setAttribute("y2", end.y);
   }
 
   onKeyDown(event) {
-    if (!this.selectedId) return;
+    if (!this.selectedId || isEditingText(event.target)) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       this.store.removeLiaison(this.selectedId);

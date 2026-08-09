@@ -1,4 +1,5 @@
 import { getCatalogEntry } from "../catalog/components.js";
+import { isEditingText } from "./domUtils.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
@@ -20,6 +21,7 @@ export class ComponentsLayer {
     this.placementStart = null;
     this.linkPickHandler = null;
     this.pendingHighlightId = null;
+    this.snapTargetId = null;
 
     this.stage.svgEl.addEventListener("pointerdown", (event) => this.onStagePointerDown(event));
     this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
@@ -42,9 +44,24 @@ export class ComponentsLayer {
     this.linkPickHandler = handler;
   }
 
+  // Ces deux surbrillances changent potentiellement à chaque pointermove pendant
+  // le tracé d'une liaison : on bascule juste la classe CSS sur l'élément déjà
+  // présent dans le DOM plutôt que de tout reconstruire via render().
   setPendingHighlight(id) {
+    this.toggleHighlightClass(this.pendingHighlightId, "component--link-pending", false);
     this.pendingHighlightId = id;
-    this.render();
+    this.toggleHighlightClass(id, "component--link-pending", true);
+  }
+
+  setSnapHighlight(id) {
+    this.toggleHighlightClass(this.snapTargetId, "component--link-target", false);
+    this.snapTargetId = id;
+    this.toggleHighlightClass(id, "component--link-target", true);
+  }
+
+  toggleHighlightClass(id, className, add) {
+    if (!id) return;
+    this.layerEl.querySelector(`[data-component-id="${id}"]`)?.classList.toggle(className, add);
   }
 
   render() {
@@ -61,6 +78,7 @@ export class ComponentsLayer {
     group.classList.add("component");
     if (component.id === this.selectedId) group.classList.add("component--selected");
     if (component.id === this.pendingHighlightId) group.classList.add("component--link-pending");
+    if (component.id === this.snapTargetId) group.classList.add("component--link-target");
     group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})`);
     group.dataset.componentId = component.id;
 
@@ -229,7 +247,7 @@ export class ComponentsLayer {
   }
 
   onKeyDown(event) {
-    if (!this.selectedId) return;
+    if (!this.selectedId || isEditingText(event.target)) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       this.store.removeComponent(this.selectedId);
@@ -237,6 +255,7 @@ export class ComponentsLayer {
     } else if (event.key.toLowerCase() === "r") {
       const component = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === this.selectedId);
       if (component) {
+        event.preventDefault();
         this.store.snapshot();
         this.store.updateComponent(this.selectedId, { rotation: (component.rotation + 90) % 360 });
       }
