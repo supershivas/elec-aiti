@@ -9,12 +9,34 @@ export class Palette {
     this.onArm = onArm;
     this.armedType = null;
     this.buttonsByType = new Map();
+    this.query = "";
+
+    this.searchInput = document.createElement("input");
+    this.searchInput.type = "search";
+    this.searchInput.className = "palette__search";
+    this.searchInput.placeholder = "Rechercher un élément…";
+    this.searchInput.setAttribute("aria-label", "Rechercher un élément");
+    this.searchInput.addEventListener("input", () => {
+      this.query = this.searchInput.value.trim().toLowerCase();
+      this.render();
+    });
+    this.containerEl.appendChild(this.searchInput);
+
+    this.listEl = document.createElement("div");
+    this.containerEl.appendChild(this.listEl);
+
     this.render();
   }
 
   render() {
-    this.containerEl.replaceChildren();
+    this.listEl.replaceChildren();
+    this.buttonsByType.clear();
+    const matches = (entry) => entry.label.toLowerCase().includes(this.query);
+
     for (const category of getCategories()) {
+      const entries = catalog.filter((item) => item.category === category && matches(item));
+      if (entries.length === 0) continue;
+
       const section = document.createElement("section");
       section.className = "palette__category";
 
@@ -25,10 +47,11 @@ export class Palette {
 
       const list = document.createElement("div");
       list.className = "palette__items";
-      for (const entry of catalog.filter((item) => item.category === category)) {
+      for (const entry of entries) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "palette__item";
+        if (entry.type === this.armedType) button.classList.add("palette__item--armed");
         button.appendChild(this.buildIcon(entry));
 
         const label = document.createElement("span");
@@ -40,7 +63,14 @@ export class Palette {
         list.appendChild(button);
       }
       section.appendChild(list);
-      this.containerEl.appendChild(section);
+      this.listEl.appendChild(section);
+    }
+
+    if (this.query && this.listEl.children.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "palette__empty";
+      empty.textContent = "Aucun élément ne correspond à cette recherche.";
+      this.listEl.appendChild(empty);
     }
   }
 

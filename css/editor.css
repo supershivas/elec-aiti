@@ -285,6 +285,27 @@
   flex-shrink: 0;
 }
 
+.palette__search {
+  display: block;
+  width: 100%;
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  font-size: var(--font-size-sm);
+}
+
+.palette__search:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.palette__empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 .palette__category + .palette__category {
   margin-top: var(--space-4);
 }
