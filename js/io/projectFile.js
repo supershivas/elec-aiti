@@ -9,10 +9,30 @@ function formatDateForFilename(date = new Date()) {
   return `${dd}${mm}${yyyy}`;
 }
 
-export function exportProjectFile(store) {
+export async function exportProjectFile(store) {
   const data = JSON.stringify({ components: store.state.components, liaisons: store.state.liaisons }, null, 2);
   const blob = new Blob([data], { type: "application/json" });
-  downloadBlob(blob, `circuit-${formatDateForFilename()}.aiti`);
+  const suggestedName = `circuit-${formatDateForFilename()}.aiti`;
+
+  // Boîte de dialogue "Enregistrer sous" native (choix de l'emplacement et du
+  // nom, nom horodaté suggéré par défaut) là où le navigateur la supporte.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: "Projet Éditeur de schémas électriques", accept: { "application/json": [".aiti"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (error) {
+      if (error.name === "AbortError") return; // annulé par l'utilisateur
+      // Sinon (API indisponible pour ce contexte, erreur d'écriture...) on
+      // retombe sur le téléchargement classique ci-dessous.
+    }
+  }
+  downloadBlob(blob, suggestedName);
 }
 
 export async function importProjectFile(store, file) {
