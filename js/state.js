@@ -69,6 +69,10 @@ export class Store {
     return this.state.components.filter((component) => component.floorId === floorId);
   }
 
+  getComponentById(id) {
+    return this.state.components.find((component) => component.id === id);
+  }
+
   addComponent({ type, floorId, x, y, ...rest }) {
     this.snapshot();
     const component = { id: createId("c"), type, floorId, x, y, rotation: 0, ...rest };
@@ -84,11 +88,57 @@ export class Store {
     this.notify();
   }
 
+  // Duplique un composant sur le même étage, légèrement décalé pour rester
+  // visible à côté de l'original. Le double n'est pas lié à l'original (voir
+  // linkToOtherFloor pour le cas "même équipement, autre étage") : ce sont deux
+  // éléments indépendants dès la duplication.
+  duplicateComponent(id, offset = 20) {
+    const component = this.state.components.find((c) => c.id === id);
+    if (!component) return null;
+    this.snapshot();
+    const clone = { ...component, id: createId("c"), x: component.x + offset, y: component.y + offset, linkedComponentId: undefined };
+    this.state.components.push(clone);
+    this.notify();
+    return clone;
+  }
+
   removeComponent(id) {
     this.snapshot();
+    const removed = this.state.components.find((c) => c.id === id);
     this.state.components = this.state.components.filter((c) => c.id !== id);
+    // Un composant lié sur l'autre étage (même équipement physique) ne doit pas
+    // garder une référence vers un id qui n'existe plus.
+    if (removed?.linkedComponentId) {
+      const linked = this.state.components.find((c) => c.id === removed.linkedComponentId);
+      if (linked) linked.linkedComponentId = undefined;
+    }
     // Une liaison qui pointe vers un composant supprimé n'a plus de sens
     this.state.liaisons = this.state.liaisons.filter((l) => l.fromComponentId !== id && l.toComponentId !== id);
+    this.notify();
+  }
+
+  // Un même équipement physique peut être présent sur deux étages (ex: point
+  // lumineux de cage d'escalier commandé depuis le RDC et le 1er) : on pose une
+  // copie liée sur l'autre étage, avec sa propre position/rotation (le plan
+  // diffère d'un étage à l'autre) mais un lien mutuel vers son double.
+  linkToOtherFloor(componentId, otherFloorId) {
+    const component = this.state.components.find((c) => c.id === componentId);
+    if (!component) return null;
+    this.snapshot();
+    const clone = { ...component, id: createId("c"), floorId: otherFloorId, linkedComponentId: component.id };
+    component.linkedComponentId = clone.id;
+    this.state.components.push(clone);
+    this.notify();
+    return clone;
+  }
+
+  unlinkComponent(componentId) {
+    const component = this.state.components.find((c) => c.id === componentId);
+    if (!component?.linkedComponentId) return;
+    this.snapshot();
+    const linked = this.state.components.find((c) => c.id === component.linkedComponentId);
+    component.linkedComponentId = undefined;
+    if (linked) linked.linkedComponentId = undefined;
     this.notify();
   }
 
@@ -131,7 +181,15 @@ export class Store {
 
   clearFloor(floorId) {
     this.snapshot();
+    const removedIds = new Set(
+      this.state.components.filter((c) => c.floorId === floorId).map((c) => c.id),
+    );
     this.state.components = this.state.components.filter((c) => c.floorId !== floorId);
+    for (const component of this.state.components) {
+      if (component.linkedComponentId && removedIds.has(component.linkedComponentId)) {
+        component.linkedComponentId = undefined;
+      }
+    }
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== floorId);
     this.notify();
   }

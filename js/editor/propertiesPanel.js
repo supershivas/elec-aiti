@@ -1,5 +1,6 @@
 import { catalog, getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
+import { floors, getFloorById } from "../floors.js";
 
 function field(labelText, inputEl) {
   const wrapper = document.createElement("label");
@@ -14,11 +15,12 @@ function field(labelText, inputEl) {
 // Panneau de propriétés du composant ou de la liaison sélectionné(e).
 // Se contente de relire l'état courant à chaque refresh() : pas d'état interne.
 export class PropertiesPanel {
-  constructor({ containerEl, store, componentsLayer, linksLayer }) {
+  constructor({ containerEl, store, componentsLayer, linksLayer, onGoToLinkedComponent }) {
     this.containerEl = containerEl;
     this.store = store;
     this.componentsLayer = componentsLayer;
     this.linksLayer = linksLayer;
+    this.onGoToLinkedComponent = onGoToLinkedComponent;
   }
 
   refresh() {
@@ -169,9 +171,66 @@ export class PropertiesPanel {
       }),
     );
 
+    const duplicateBtn = document.createElement("button");
+    duplicateBtn.type = "button";
+    duplicateBtn.className = "toolbar__button";
+    duplicateBtn.textContent = "Dupliquer";
+    duplicateBtn.addEventListener("click", () => {
+      const clone = this.store.duplicateComponent(component.id);
+      if (clone) this.componentsLayer.select(clone.id);
+    });
+    this.containerEl.appendChild(duplicateBtn);
+
     this.renderLiaisonsSection(component);
+    this.renderMultiFloorSection(component);
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeComponent(component.id)));
+  }
+
+  // Un même équipement physique (ex: applique de cage d'escalier) peut être
+  // représenté sur deux étages, avec une position propre à chacun mais un lien
+  // mutuel entre les deux exemplaires (voir Store.linkToOtherFloor).
+  renderMultiFloorSection(component) {
+    const heading = document.createElement("h3");
+    heading.className = "properties__subtitle";
+    heading.textContent = "Multi-étage";
+    this.containerEl.appendChild(heading);
+
+    const linked = component.linkedComponentId ? this.store.getComponentById(component.linkedComponentId) : null;
+
+    if (linked) {
+      const linkedFloor = getFloorById(linked.floorId);
+      const info = document.createElement("p");
+      info.className = "properties__empty";
+      info.textContent = `Également posé sur : ${linkedFloor?.label || linked.floorId}.`;
+      this.containerEl.appendChild(info);
+
+      const goToBtn = document.createElement("button");
+      goToBtn.type = "button";
+      goToBtn.className = "toolbar__button";
+      goToBtn.textContent = `Aller à l'exemplaire (${linkedFloor?.label || linked.floorId})`;
+      goToBtn.addEventListener("click", () => this.onGoToLinkedComponent?.(linked.floorId, linked.id));
+      this.containerEl.appendChild(goToBtn);
+
+      const unlinkBtn = document.createElement("button");
+      unlinkBtn.type = "button";
+      unlinkBtn.className = "toolbar__button";
+      unlinkBtn.textContent = "Dissocier les deux étages";
+      unlinkBtn.addEventListener("click", () => this.store.unlinkComponent(component.id));
+      this.containerEl.appendChild(unlinkBtn);
+    } else {
+      for (const floor of floors.filter((f) => f.id !== component.floorId)) {
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "toolbar__button";
+        addBtn.textContent = `Ajouter aussi sur : ${floor.label}`;
+        addBtn.addEventListener("click", () => {
+          const clone = this.store.linkToOtherFloor(component.id, floor.id);
+          if (clone) this.onGoToLinkedComponent?.(floor.id, clone.id);
+        });
+        this.containerEl.appendChild(addBtn);
+      }
+    }
   }
 
   buildCommentField(value, onChange) {

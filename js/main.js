@@ -98,6 +98,18 @@ propertiesPanel = new PropertiesPanel({
   store,
   componentsLayer,
   linksLayer,
+  // "Aller à l'exemplaire lié" (élément multi-étage) : bascule d'étage puis
+  // sélectionne et recentre la vue sur son double.
+  onGoToLinkedComponent: (floorId, componentId) => {
+    if (floorSelectEl.value !== floorId) {
+      floorSelectEl.value = floorId;
+      floorSelectEl.dispatchEvent(new Event("change"));
+    }
+    const component = store.getComponentsForFloor(floorId).find((c) => c.id === componentId);
+    if (!component) return;
+    componentsLayer.select(componentId);
+    stage.centerOn(component.x, component.y);
+  },
 });
 
 // Met en surbrillance les liaisons connectées au composant actuellement

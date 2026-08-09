@@ -67,9 +67,15 @@ Liaison {
 - Un `floors.json` (ou tableau en dur) liste les étages : `{id, label, planPath}`.
 - Les composants/liaisons sont scopés par `floorId`. On affiche un étage à la fois,
   sélecteur d'étage en haut de l'UI.
-- Les liaisons ne traversent pas les étages en v1 (une colonne montante tableau→tableau
-  entre étages n'est pas modélisée comme liaison graphique, juste comme deux tableaux
-  indépendants). À revoir si besoin réel.
+- Les liaisons ne traversent pas les étages : un fil reste toujours dans le `floorId`
+  de ses deux extrémités.
+- Un équipement physique unique peut être visible sur deux étages (ex: point lumineux
+  de cage d'escalier commandé depuis le RDC et le 1er) : dans le panneau de propriétés,
+  bouton "Ajouter aussi sur : [autre étage]" pose une copie liée (`linkedComponentId`
+  mutuel) sur l'autre étage, avec sa propre position/rotation (le plan diffère), et
+  peut ensuite être reliée à un interrupteur local via une liaison normale sur cet
+  étage. "Aller à l'exemplaire lié" bascule d'étage et sélectionne le double ;
+  "Dissocier" retire le lien sans supprimer les composants.
 
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
@@ -136,5 +142,6 @@ un symbole, sans toucher au reste du code.
 - Pas de calcul de bilan de puissance, de sections de câble, de conformité NF C 15-100.
 - Pas de multi-utilisateur / compte / sync serveur (site statique).
 - Pas d'export PDF dédié (le SVG suffit en v1).
-- Pas de liaisons inter-étages.
+- Pas de liaisons graphiques inter-étages (voir "Gestion multi-étages" pour le mécanisme
+  de composant lié qui couvre le besoin réel : même équipement visible sur deux étages).
 - Pas d'undo/redo avancé en v1 (à évaluer plus tard si besoin).
