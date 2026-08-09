@@ -11,6 +11,8 @@ export class Palette {
     this.buttonsByType = new Map();
     this.query = "";
 
+    const searchBar = document.createElement("div");
+    searchBar.className = "palette__search-bar";
     this.searchInput = document.createElement("input");
     this.searchInput.type = "search";
     this.searchInput.className = "palette__search";
@@ -20,7 +22,8 @@ export class Palette {
       this.query = this.searchInput.value.trim().toLowerCase();
       this.render();
     });
-    this.containerEl.appendChild(this.searchInput);
+    searchBar.appendChild(this.searchInput);
+    this.containerEl.appendChild(searchBar);
 
     this.listEl = document.createElement("div");
     this.containerEl.appendChild(this.listEl);

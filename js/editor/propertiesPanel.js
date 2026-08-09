@@ -28,6 +28,13 @@ export class PropertiesPanel {
     const liaison = component ? null : this.linksLayer.getSelectedLiaison();
     this.containerEl.replaceChildren();
 
+    // Titre du panneau lui-même (h2, cohérent avec le h1 du bandeau du haut) :
+    // distinct du nom de l'élément sélectionné (h3) et des sous-sections (h4).
+    const panelTitle = document.createElement("h2");
+    panelTitle.className = "properties__panel-title";
+    panelTitle.textContent = "Propriétés";
+    this.containerEl.appendChild(panelTitle);
+
     if (component) {
       this.renderComponentProps(component);
     } else if (liaison) {
@@ -43,7 +50,7 @@ export class PropertiesPanel {
   renderComponentProps(component) {
     const entry = getCatalogEntry(component.type);
 
-    const title = document.createElement("h2");
+    const title = document.createElement("h3");
     title.className = "properties__title";
     title.textContent = entry.label;
     this.containerEl.appendChild(title);
@@ -171,6 +178,9 @@ export class PropertiesPanel {
       }),
     );
 
+    this.renderLiaisonsSection(component);
+    this.renderMultiFloorSection(component);
+
     const duplicateBtn = document.createElement("button");
     duplicateBtn.type = "button";
     duplicateBtn.className = "toolbar__button";
@@ -181,9 +191,6 @@ export class PropertiesPanel {
     });
     this.containerEl.appendChild(duplicateBtn);
 
-    this.renderLiaisonsSection(component);
-    this.renderMultiFloorSection(component);
-
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeComponent(component.id)));
   }
 
@@ -191,7 +198,7 @@ export class PropertiesPanel {
   // représenté sur deux étages, avec une position propre à chacun mais un lien
   // mutuel entre les deux exemplaires (voir Store.linkToOtherFloor).
   renderMultiFloorSection(component) {
-    const heading = document.createElement("h3");
+    const heading = document.createElement("h4");
     heading.className = "properties__subtitle";
     heading.textContent = "Multi-étage";
     this.containerEl.appendChild(heading);
@@ -250,7 +257,7 @@ export class PropertiesPanel {
       .filter((l) => l.fromComponentId === component.id || l.toComponentId === component.id);
     if (liaisons.length === 0) return;
 
-    const heading = document.createElement("h3");
+    const heading = document.createElement("h4");
     heading.className = "properties__subtitle";
     heading.textContent = `Liaisons (${liaisons.length})`;
     this.containerEl.appendChild(heading);
@@ -281,7 +288,7 @@ export class PropertiesPanel {
   }
 
   renderLiaisonProps(liaison) {
-    const title = document.createElement("h2");
+    const title = document.createElement("h3");
     title.className = "properties__title";
     title.textContent = "Liaison";
     this.containerEl.appendChild(title);
