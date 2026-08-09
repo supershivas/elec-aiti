@@ -213,10 +213,13 @@ importFileInputEl.addEventListener("change", async () => {
   }
 });
 
-menuBar.onAction("#menu-export-svg", () => exportSvg(stage, getFloorById(floorSelectEl.value), store));
-menuBar.onAction("#menu-export-png", () => exportPng(stage, getFloorById(floorSelectEl.value), store));
-menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, getFloorById(floorSelectEl.value), store));
-menuBar.onAction("#menu-print", () => exportPdf(stage, getFloorById(floorSelectEl.value), store));
+// Les exports couvrent toujours tous les étages (un fichier par étage pour
+// SVG/PNG, une seule PDF multi-pages pour PDF/impression), pas seulement
+// celui affiché à l'écran.
+menuBar.onAction("#menu-export-svg", () => exportSvg(stage, componentsLayer, linksLayer, store));
+menuBar.onAction("#menu-export-png", () => exportPng(stage, componentsLayer, linksLayer, store));
+menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, componentsLayer, linksLayer, store));
+menuBar.onAction("#menu-print", () => exportPdf(stage, componentsLayer, linksLayer, store));
 menuBar.onAction("#menu-undo", () => store.undo());
 menuBar.onAction("#menu-clear", () => {
   const floor = getFloorById(floorSelectEl.value);

@@ -59,9 +59,11 @@ Liaison {
 - Sauvegarde : **JSON** (le seul format persistant possible sans backend). Auto-save en
   `localStorage` + export/import du projet complet (tous étages) via le menu Fichier, au
   format `.aiti` (JSON renommé), nommé `circuit-DDMMYYYY.aiti` (pas de compte, pas de sync).
-- Export du schéma : menu Fichier > Exporter en SVG/PNG/PDF (légende générée automatiquement,
-  ne listant que les types de composants réellement posés sur l'étage). Le PDF passe par la
-  boîte de dialogue d'impression du navigateur, sans dépendance de génération PDF.
+- Export du schéma : menu Fichier > Exporter en SVG/PNG/PDF, toujours pour tous les étages
+  (pas seulement celui affiché) — un fichier par étage pour SVG/PNG, une seule PDF
+  multi-pages (une page par étage) pour PDF/impression. Légende générée automatiquement par
+  étage, ne listant que les types de composants réellement posés sur cet étage-là. Le PDF
+  passe par la boîte de dialogue d'impression du navigateur, sans dépendance de génération PDF.
 
 ## Gestion multi-étages
 - Un `floors.json` (ou tableau en dur) liste les étages : `{id, label, planPath}`.

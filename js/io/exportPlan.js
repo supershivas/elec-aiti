@@ -1,7 +1,10 @@
-// Export du plan de l'étage courant en SVG / PNG / PDF, sans dépendance externe.
-// Le PDF passe par la boîte de dialogue d'impression du navigateur ("Enregistrer en PDF"),
-// pour éviter d'ajouter une librairie de génération PDF juste pour ce besoin.
+// Export de tous les étages en SVG / PNG / PDF, sans dépendance externe : un
+// fichier par étage pour SVG/PNG, une seule PDF multi-pages (une page par
+// étage) pour le PDF/impression. Le PDF passe par la boîte de dialogue
+// d'impression du navigateur ("Enregistrer en PDF"), pour éviter d'ajouter
+// une librairie de génération PDF juste pour ce besoin.
 import { getCatalogEntry } from "../catalog/components.js";
+import { floors } from "../floors.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -150,9 +153,37 @@ function buildExportSvgString(stage, floor, store) {
   return { svgString: new XMLSerializer().serializeToString(clone), width, height: totalHeight };
 }
 
-export function exportSvg(stage, floor, store) {
-  const { svgString } = buildExportSvgString(stage, floor, store);
-  downloadBlob(new Blob([svgString], { type: "image/svg+xml" }), `${floor.id}.svg`);
+// Bascule successivement le stage/les calques sur chaque étage pour en
+// construire l'export, puis restaure l'étage et la sélection d'origine.
+// C'est le même mécanisme que "Aller à l'exemplaire lié" (multi-étage) : pas
+// de rendu hors-écran séparé à maintenir, on réutilise le stage d'édition.
+async function forEachFloor(stage, componentsLayer, linksLayer, store, callback) {
+  const originalFloorId = componentsLayer.floorId;
+  const originalComponentId = componentsLayer.selectedId;
+  const originalLiaisonId = linksLayer.selectedId;
+  const originalFloor = floors.find((f) => f.id === originalFloorId);
+
+  for (const floor of floors) {
+    await stage.loadFloor(floor);
+    componentsLayer.setFloor(floor.id);
+    linksLayer.setFloor(floor.id);
+    const built = buildExportSvgString(stage, floor, store);
+    await callback(floor, built);
+  }
+
+  if (originalFloor) {
+    await stage.loadFloor(originalFloor);
+    componentsLayer.setFloor(originalFloor.id);
+    linksLayer.setFloor(originalFloor.id);
+    if (originalComponentId) componentsLayer.select(originalComponentId);
+    if (originalLiaisonId) linksLayer.select(originalLiaisonId);
+  }
+}
+
+export async function exportSvg(stage, componentsLayer, linksLayer, store) {
+  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString }) => {
+    downloadBlob(new Blob([svgString], { type: "image/svg+xml" }), `${floor.id}.svg`);
+  });
 }
 
 function loadImage(url) {
@@ -182,13 +213,14 @@ async function svgToPngBlob(svgString, width, height, scale = 2) {
   }
 }
 
-export async function exportPng(stage, floor, store) {
-  const { svgString, width, height } = buildExportSvgString(stage, floor, store);
-  const pngBlob = await svgToPngBlob(svgString, width, height);
-  downloadBlob(pngBlob, `${floor.id}.png`);
+export async function exportPng(stage, componentsLayer, linksLayer, store) {
+  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString, width, height }) => {
+    const pngBlob = await svgToPngBlob(svgString, width, height);
+    downloadBlob(pngBlob, `${floor.id}.png`);
+  });
 }
 
-export async function exportPdf(stage, floor, store) {
+export async function exportPdf(stage, componentsLayer, linksLayer, store) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("Merci d'autoriser les pop-ups pour exporter en PDF (impression du navigateur).");
@@ -196,10 +228,16 @@ export async function exportPdf(stage, floor, store) {
   }
   printWindow.document.write("<title>Génération du PDF…</title>Génération du plan…");
 
-  const { svgString, width, height } = buildExportSvgString(stage, floor, store);
-  const pngBlob = await svgToPngBlob(svgString, width, height);
-  const pngUrl = URL.createObjectURL(pngBlob);
-  const landscape = width >= height;
+  const pages = [];
+  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString, width, height }) => {
+    const pngBlob = await svgToPngBlob(svgString, width, height);
+    pages.push({ floor, url: URL.createObjectURL(pngBlob), width, height });
+  });
+
+  const landscape = pages[0].width >= pages[0].height;
+  const pagesHtml = pages
+    .map(({ floor, url }) => `<div class="page"><img src="${url}" alt="${floor.label}" /></div>`)
+    .join("\n");
 
   printWindow.document.open();
   printWindow.document.write(`
@@ -207,15 +245,27 @@ export async function exportPdf(stage, floor, store) {
     <html lang="fr">
       <head>
         <meta charset="UTF-8" />
-        <title>${floor.label}</title>
+        <title>Éditeur de schémas électriques</title>
         <style>
           @page { size: ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
           html, body { margin: 0; padding: 0; }
           img { display: block; width: 100%; height: auto; }
+          .page { break-after: page; }
+          .page:last-child { break-after: auto; }
         </style>
       </head>
       <body>
-        <img src="${pngUrl}" alt="${floor.label}" onload="window.print();" />
+        ${pagesHtml}
+        <script>
+          let loaded = 0;
+          const total = document.images.length;
+          for (const img of document.images) {
+            img.addEventListener("load", () => {
+              loaded += 1;
+              if (loaded === total) window.print();
+            });
+          }
+        </script>
       </body>
     </html>
   `);
