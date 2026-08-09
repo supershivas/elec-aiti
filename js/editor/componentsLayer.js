@@ -145,7 +145,7 @@ export class ComponentsLayer {
     }
 
     const title = document.createElementNS(SVG_NS, "title");
-    title.textContent = component.label || entry.label;
+    title.textContent = component.comment ? `${component.label || entry.label}\n${component.comment}` : component.label || entry.label;
     group.appendChild(title);
 
     group.addEventListener("pointerdown", (event) => this.onComponentPointerDown(event, component));

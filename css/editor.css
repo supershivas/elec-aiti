@@ -180,12 +180,18 @@
 }
 
 .properties__field input,
-.properties__field select {
+.properties__field select,
+.properties__field textarea {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
   font-size: var(--font-size-base);
+}
+
+.properties__field textarea {
+  font-family: inherit;
+  resize: vertical;
 }
 
 .properties__rotation {

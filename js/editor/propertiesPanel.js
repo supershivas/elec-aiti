@@ -127,9 +127,25 @@ export class PropertiesPanel {
       this.containerEl.appendChild(field("Profondeur (cm)", heightInput));
     }
 
+    this.containerEl.appendChild(
+      this.buildCommentField(component.comment, (value) => {
+        this.store.snapshot();
+        this.store.updateComponent(component.id, { comment: value });
+      }),
+    );
+
     this.renderLiaisonsSection(component);
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeComponent(component.id)));
+  }
+
+  buildCommentField(value, onChange) {
+    const textarea = document.createElement("textarea");
+    textarea.rows = 3;
+    textarea.value = value || "";
+    textarea.placeholder = "Note libre (emplacement, remarque, à vérifier...)";
+    textarea.addEventListener("change", () => onChange(textarea.value.trim() || undefined));
+    return field("Commentaire", textarea);
   }
 
   // Liste les liaisons connectées à ce composant : pas besoin de cliquer sur le
@@ -188,6 +204,12 @@ export class PropertiesPanel {
       this.store.updateLiaison(liaison.id, { type: typeSelect.value });
     });
     this.containerEl.appendChild(field("Type", typeSelect));
+
+    this.containerEl.appendChild(
+      this.buildCommentField(liaison.comment, (value) => {
+        this.store.updateLiaison(liaison.id, { comment: value });
+      }),
+    );
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeLiaison(liaison.id)));
   }

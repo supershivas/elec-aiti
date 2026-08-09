@@ -1,8 +1,35 @@
 import { getLinkType } from "../catalog/linkTypes.js";
+import { getCatalogEntry } from "../catalog/components.js";
 import { isEditingText } from "./domUtils.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
+
+// Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
+// (typiquement un point lumineux), c'est un montage va-et-vient : on bascule
+// automatiquement toutes les liaisons "commande" de ce hub sur ce type, avec
+// un circuitId partagé (cf. modèle de données dans CLAUDE.md).
+function autoConvertVaEtVient(store, floorId, hubComponentId) {
+  const components = store.getComponentsForFloor(floorId);
+  const isCommandeFamily = (componentId) => {
+    const component = components.find((c) => c.id === componentId);
+    return component && getCatalogEntry(component.type)?.category === "Commandes";
+  };
+
+  const candidates = store
+    .getLiaisonsForFloor(floorId)
+    .filter((l) => l.fromComponentId === hubComponentId || l.toComponentId === hubComponentId)
+    .filter((l) => isCommandeFamily(l.fromComponentId === hubComponentId ? l.toComponentId : l.fromComponentId));
+
+  if (candidates.length < 2) return;
+
+  const circuitId = candidates.find((l) => l.circuitId)?.circuitId ?? `circuit-${hubComponentId}`;
+  for (const liaison of candidates) {
+    if (liaison.type !== "va_et_vient" || liaison.circuitId !== circuitId) {
+      store.updateLiaison(liaison.id, { type: "va_et_vient", circuitId });
+    }
+  }
+}
 
 // Gère l'affichage, la sélection et le tracé des liaisons entre composants.
 // Une liaison ne stocke que les deux ID de composants : sa géométrie est
@@ -76,7 +103,7 @@ export class LinksLayer {
     group.appendChild(line);
 
     const title = document.createElementNS(SVG_NS, "title");
-    title.textContent = linkType.label;
+    title.textContent = liaison.comment ? `${linkType.label}\n${liaison.comment}` : linkType.label;
     group.appendChild(title);
 
     group.addEventListener("pointerdown", (event) => {
@@ -151,6 +178,8 @@ export class LinksLayer {
       fromComponentId: this.linking.fromId,
       toComponentId: component.id,
     });
+    autoConvertVaEtVient(this.store, this.floorId, liaison.fromComponentId);
+    autoConvertVaEtVient(this.store, this.floorId, liaison.toComponentId);
     this.stopLinking();
     this.select(liaison.id);
   }
