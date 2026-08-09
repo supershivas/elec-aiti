@@ -240,20 +240,40 @@
   border-color: var(--color-accent);
 }
 
-.properties__delete {
+.properties__delete,
+.properties__duplicate {
   width: 100%;
-  margin-top: var(--space-2);
   padding: var(--space-2);
-  border: 1px solid var(--color-circuit-alimentation);
   border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.properties__duplicate {
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-panel);
+  color: var(--color-text);
+}
+
+.properties__duplicate:hover {
+  border-color: var(--color-accent);
+}
+
+.properties__delete {
+  border: 1px solid var(--color-circuit-alimentation);
   background: var(--color-bg-panel);
   color: var(--color-circuit-alimentation);
-  cursor: pointer;
 }
 
 .properties__delete:hover {
   background: var(--color-circuit-alimentation);
   color: #fff;
+}
+
+.properties__divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-4) 0;
 }
 
 .properties__subtitle {

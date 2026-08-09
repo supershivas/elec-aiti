@@ -181,9 +181,16 @@ export class PropertiesPanel {
     this.renderLiaisonsSection(component);
     this.renderMultiFloorSection(component);
 
+    // Divider avant les actions globales sur l'élément (dupliquer/supprimer) :
+    // ce ne sont pas des propriétés mais des opérations, à distinguer visuellement
+    // des sections précédentes (liaisons, multi-étage).
+    const divider = document.createElement("hr");
+    divider.className = "properties__divider";
+    this.containerEl.appendChild(divider);
+
     const duplicateBtn = document.createElement("button");
     duplicateBtn.type = "button";
-    duplicateBtn.className = "toolbar__button";
+    duplicateBtn.className = "properties__duplicate";
     duplicateBtn.textContent = "Dupliquer";
     duplicateBtn.addEventListener("click", () => {
       const clone = this.store.duplicateComponent(component.id);
