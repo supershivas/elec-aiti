@@ -250,8 +250,8 @@ export async function exportPdf(stage, componentsLayer, linksLayer, store) {
           @page { size: ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
           html, body { margin: 0; padding: 0; }
           img { display: block; width: 100%; height: auto; }
-          .page { break-after: page; }
-          .page:last-child { break-after: auto; }
+          .page { page-break-after: always; break-after: page; }
+          .page:last-child { page-break-after: avoid; break-after: avoid; }
         </style>
       </head>
       <body>
