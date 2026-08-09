@@ -169,6 +169,16 @@ window.addEventListener("keydown", (event) => {
   exitMeasuring();
 });
 
+// Ctrl/Cmd+Z : annuler. Si le focus est dans un champ de texte, on laisse le
+// navigateur gérer son propre undo natif plutôt que d'annuler une action du plan.
+window.addEventListener("keydown", (event) => {
+  if (isEditingText(event.target)) return;
+  const isUndoShortcut = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
+  if (!isUndoShortcut) return;
+  event.preventDefault();
+  store.undo();
+});
+
 const menuBar = new MenuBar([
   { triggerId: "menu-file-trigger", dropdownId: "menu-file-dropdown" },
   { triggerId: "menu-edit-trigger", dropdownId: "menu-edit-dropdown" },

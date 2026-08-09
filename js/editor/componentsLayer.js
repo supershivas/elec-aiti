@@ -1,11 +1,14 @@
 import { getCatalogEntry } from "../catalog/components.js";
 import { isEditingText } from "./domUtils.js";
 import { snapPosition } from "./snapping.js";
+import { promptFurnitureDetails } from "./furnitureDialog.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
 const HITBOX_PADDING = 16;
 const CLICK_THRESHOLD_PX = 6;
+const RESIZE_HANDLE_SIZE = 10;
+const MIN_SIZE_CM = 10;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -20,6 +23,7 @@ export class ComponentsLayer {
     this.armedType = null;
     this.selectedId = null;
     this.pendingDrag = null;
+    this.resizeState = null;
     this.placementStart = null;
     this.linkPickHandler = null;
     this.pendingHighlightId = null;
@@ -148,8 +152,35 @@ export class ComponentsLayer {
     title.textContent = component.comment ? `${component.label || entry.label}\n${component.comment}` : component.label || entry.label;
     group.appendChild(title);
 
+    // Poignée de redimensionnement à la main, uniquement sur le meuble
+    // personnalisé sélectionné (les autres tailles réelles se règlent dans
+    // le panneau de propriétés, en cm précis).
+    if (entry.customizable && component.id === this.selectedId) {
+      const handle = document.createElementNS(SVG_NS, "rect");
+      handle.setAttribute("x", width / 2 - RESIZE_HANDLE_SIZE / 2);
+      handle.setAttribute("y", height / 2 - RESIZE_HANDLE_SIZE / 2);
+      handle.setAttribute("width", RESIZE_HANDLE_SIZE);
+      handle.setAttribute("height", RESIZE_HANDLE_SIZE);
+      handle.classList.add("component__resize-handle");
+      handle.addEventListener("pointerdown", (event) => this.onResizeHandlePointerDown(event, component));
+      group.appendChild(handle);
+    }
+
     group.addEventListener("pointerdown", (event) => this.onComponentPointerDown(event, component));
     return group;
+  }
+
+  onResizeHandlePointerDown(event, component) {
+    event.stopPropagation();
+    this.store.snapshot();
+    this.resizeState = {
+      pointerId: event.pointerId,
+      componentId: component.id,
+      startPoint: this.stage.clientToViewBoxPoint(event.clientX, event.clientY),
+      startWidth: component.width,
+      startHeight: component.height,
+    };
+    this.layerEl.setPointerCapture(event.pointerId);
   }
 
   onComponentPointerDown(event, component) {
@@ -192,6 +223,17 @@ export class ComponentsLayer {
   }
 
   onStagePointerMove(event) {
+    if (this.resizeState && this.resizeState.pointerId === event.pointerId) {
+      const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
+      // Le centre reste fixe : la poignée (coin bas-droit) déplace donc les
+      // deux bords opposés symétriquement, d'où le facteur 2.
+      const dx = (point.x - this.resizeState.startPoint.x) * 2;
+      const dy = (point.y - this.resizeState.startPoint.y) * 2;
+      const width = Math.max(MIN_SIZE_CM, Math.round(this.resizeState.startWidth + dx));
+      const height = Math.max(MIN_SIZE_CM, Math.round(this.resizeState.startHeight + dy));
+      this.store.updateComponent(this.resizeState.componentId, { width, height });
+      return;
+    }
     if (!this.pendingDrag || this.pendingDrag.pointerId !== event.pointerId) return;
     const drag = this.pendingDrag;
     if (!drag.dragging) {
@@ -217,6 +259,10 @@ export class ComponentsLayer {
   }
 
   onStagePointerUp(event) {
+    if (this.resizeState && this.resizeState.pointerId === event.pointerId) {
+      this.resizeState = null;
+      return;
+    }
     if (this.pendingDrag && this.pendingDrag.pointerId === event.pointerId) {
       const { dragging, componentId } = this.pendingDrag;
       this.pendingDrag = null;
@@ -232,21 +278,21 @@ export class ComponentsLayer {
     }
   }
 
-  placeComponent(event) {
+  async placeComponent(event) {
     const entry = getCatalogEntry(this.armedType);
     const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
     const extra = {};
 
     if (entry.customizable) {
-      const widthInput = prompt("Largeur du meuble (cm) :", entry.width);
-      if (widthInput === null) return;
-      const heightInput = prompt("Profondeur du meuble (cm) :", entry.height);
-      if (heightInput === null) return;
-      const nameInput = prompt("Nom du meuble :", entry.label);
-      if (nameInput === null) return;
-      extra.width = Math.max(1, Number(widthInput)) || entry.width;
-      extra.height = Math.max(1, Number(heightInput)) || entry.height;
-      extra.label = nameInput.trim() || entry.label;
+      const details = await promptFurnitureDetails({
+        defaultLabel: entry.label,
+        defaultWidth: entry.width,
+        defaultHeight: entry.height,
+      });
+      if (!details) return; // annulé
+      extra.label = details.label;
+      extra.width = details.width;
+      extra.height = details.height;
     }
 
     const component = this.store.addComponent({

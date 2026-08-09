@@ -57,6 +57,16 @@
   color: #fff;
 }
 
+.toolbar__button--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.toolbar__button--primary:hover {
+  filter: brightness(1.1);
+}
+
 .menubar {
   display: flex;
   align-items: center;
@@ -436,6 +446,13 @@
   pointer-events: none;
 }
 
+.component__resize-handle {
+  fill: var(--color-accent);
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: nwse-resize;
+}
+
 .component--link-pending .component__shape {
   stroke: var(--color-accent-hover);
   stroke-width: 3;
@@ -558,6 +575,13 @@
 .modal__body {
   padding: var(--space-4);
   overflow-y: auto;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .modal__summary {
