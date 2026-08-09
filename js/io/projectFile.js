@@ -1,6 +1,7 @@
 // Export/import du projet complet (tous les étages) au format .aiti (JSON renommé,
 // pas de format binaire propriétaire) : circuit-DDMMYYYY.aiti
 import { downloadBlob } from "./download.js";
+import { promptSaveFilename } from "./saveFileDialog.js";
 
 function formatDateForFilename(date = new Date()) {
   const dd = String(date.getDate()).padStart(2, "0");
@@ -32,7 +33,13 @@ export async function exportProjectFile(store) {
       // retombe sur le téléchargement classique ci-dessous.
     }
   }
-  downloadBlob(blob, suggestedName);
+
+  // Navigateurs sans File System Access API (Firefox, Safari...) : pas de
+  // choix natif de l'emplacement, mais on propose au moins de personnaliser
+  // le nom plutôt que d'enregistrer en silence sous le nom par défaut.
+  const filename = await promptSaveFilename({ defaultName: suggestedName, extension: ".aiti" });
+  if (!filename) return; // annulé
+  downloadBlob(blob, filename);
 }
 
 export async function importProjectFile(store, file) {
