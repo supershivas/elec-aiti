@@ -33,6 +33,9 @@
   --color-circuit-alimentation: #dc2626;
   --color-circuit-commande: #7c3aed;
 
+  /* Outil de mesure */
+  --color-measure: #0891b2;
+
   /* Typographie */
   --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-size-sm: 12px;

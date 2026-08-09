@@ -55,6 +55,17 @@ export class Stage {
     this.applyViewBox();
   }
 
+  // Recentre la vue sur un point du plan, sans changer le niveau de zoom
+  // (utilisé par la liste des éléments pour "aller voir" un composant).
+  centerOn(x, y) {
+    this.viewBox = {
+      ...this.viewBox,
+      x: x - this.viewBox.width / 2,
+      y: y - this.viewBox.height / 2,
+    };
+    this.applyViewBox();
+  }
+
   applyViewBox() {
     const { x, y, width, height } = this.viewBox;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);

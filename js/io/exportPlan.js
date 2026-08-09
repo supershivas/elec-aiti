@@ -23,7 +23,7 @@ function buildLegendIcon(entry) {
     rect.setAttribute("rx", 2);
     rect.setAttribute("fill", "#ffffff");
     rect.setAttribute("stroke", "currentColor");
-    rect.setAttribute("stroke-width", "1.5");
+    rect.setAttribute("stroke-width", "2");
     group.appendChild(rect);
     if (entry.abbr) {
       const text = document.createElementNS(SVG_NS, "text");
@@ -43,7 +43,7 @@ function buildLegendIcon(entry) {
     use.setAttribute("height", LEGEND_ICON_SIZE);
     use.setAttribute("fill", "#ffffff");
     use.setAttribute("stroke", "currentColor");
-    use.setAttribute("stroke-width", "1.5");
+    use.setAttribute("stroke-width", "2");
     use.setAttribute("stroke-linecap", "round");
     use.setAttribute("stroke-linejoin", "round");
     group.appendChild(use);
@@ -104,7 +104,7 @@ function buildExportSvgString(stage, floor, store) {
   const style = document.createElementNS(SVG_NS, "style");
   style.textContent = `
     .component { color: ${componentColor}; }
-    .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .component__label { fill: currentColor; font: 600 9px sans-serif; }
     .component__badge { fill: currentColor; font: 600 6px sans-serif; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
@@ -115,6 +115,8 @@ function buildExportSvgString(stage, floor, store) {
   clone.querySelectorAll(".component--selected, .liaison--selected").forEach((el) => {
     el.classList.remove("component--selected", "liaison--selected");
   });
+  // L'outil de mesure est un repère temporaire d'édition, pas une donnée du schéma
+  clone.querySelector("#measure-layer")?.remove();
 
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
     .map((type) => getCatalogEntry(type))

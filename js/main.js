@@ -4,7 +4,9 @@ import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
 import { ComponentsLayer } from "./editor/componentsLayer.js";
 import { LinksLayer } from "./editor/linksLayer.js";
+import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
+import { ElementsListDialog } from "./editor/elementsList.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
@@ -17,10 +19,13 @@ const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
 const linksLayerEl = document.querySelector("#links-layer");
+const measureLayerEl = document.querySelector("#measure-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const linkToolToggleEl = document.querySelector("#link-tool-toggle");
+const selectModeButtonEl = document.querySelector("#mode-select");
+const measureModeButtonEl = document.querySelector("#mode-measure");
 const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
@@ -43,7 +48,7 @@ const stage = new Stage(svgEl, errorEl);
 const store = new Store();
 new ScaleBar({ stage, lineEl: scaleBarLineEl, labelEl: scaleBarLabelEl });
 
-// Déclarée avant d'être assignée : les calques ont besoin de se référencer
+// Déclarées avant d'être assignées : les calques ont besoin de se référencer
 // mutuellement pour que sélectionner l'un désélectionne l'autre.
 let linksLayer;
 let propertiesPanel;
@@ -58,13 +63,14 @@ const componentsLayer = new ComponentsLayer({
   },
   onSelect: () => {
     linksLayer.clearSelection();
+    syncCrossHighlight();
     propertiesPanel.refresh();
   },
 });
 const palette = new Palette({
   containerEl: paletteEl,
   onArm: (type) => {
-    disarmLinking();
+    exitLinkingAndMeasuring();
     componentsLayer.armPlacement(type);
   },
 });
@@ -76,9 +82,12 @@ linksLayer = new LinksLayer({
   componentsLayer,
   onSelect: () => {
     componentsLayer.clearSelection();
+    syncCrossHighlight();
     propertiesPanel.refresh();
   },
 });
+
+const measureTool = new MeasureTool({ layerEl: measureLayerEl, stage });
 
 propertiesPanel = new PropertiesPanel({
   containerEl: propertiesPanelEl,
@@ -86,6 +95,12 @@ propertiesPanel = new PropertiesPanel({
   componentsLayer,
   linksLayer,
 });
+
+// Met en surbrillance les liaisons connectées au composant actuellement
+// sélectionné, sans avoir à cliquer sur leur trait fin.
+function syncCrossHighlight() {
+  linksLayer.highlightForComponent(componentsLayer.selectedId);
+}
 
 function refreshUndoState() {
   undoMenuButton.disabled = !store.canUndo();
@@ -109,35 +124,60 @@ floorSelectEl.addEventListener("change", () => {
   propertiesPanel.refresh();
 });
 
-let linkingArmed = false;
-function disarmLinking() {
-  if (!linkingArmed) return;
-  linkingArmed = false;
-  linkToolToggleEl.classList.remove("toolbar__button--armed");
-  stage.svgEl.classList.remove("stage__svg--linking");
+// --- Modes d'interaction -------------------------------------------------
+// Un seul outil actif à la fois : sélection (défaut), pose depuis la palette,
+// tracé de liaison, ou mesure. Chaque outil sait comment se désarmer proprement.
+function exitLinkingAndMeasuring() {
   linksLayer.stopLinking();
+  linkToolToggleEl.classList.remove("toolbar__button--armed");
+  measureTool.setActive(false);
+  measureModeButtonEl.classList.remove("toolbar__button--armed");
+  componentsLayer.setSuspended(false);
+  stage.svgEl.classList.remove("stage__svg--linking", "stage__svg--measuring");
+  selectModeButtonEl.classList.add("toolbar__button--armed");
 }
 
-linkToolToggleEl.addEventListener("click", () => {
-  if (linkingArmed) {
-    disarmLinking();
-    return;
-  }
+selectModeButtonEl.addEventListener("click", () => {
   palette.setArmed(null);
   componentsLayer.armPlacement(null);
-  linkingArmed = true;
+  exitLinkingAndMeasuring();
+});
+
+linkToolToggleEl.addEventListener("click", () => {
+  const wasActive = linkToolToggleEl.classList.contains("toolbar__button--armed");
+  palette.setArmed(null);
+  componentsLayer.armPlacement(null);
+  exitLinkingAndMeasuring();
+  if (wasActive) return;
+  selectModeButtonEl.classList.remove("toolbar__button--armed");
   linkToolToggleEl.classList.add("toolbar__button--armed");
   stage.svgEl.classList.add("stage__svg--linking");
   linksLayer.startLinking(linkTypeSelectEl.value);
 });
 
 linkTypeSelectEl.addEventListener("change", () => {
-  if (linkingArmed) linksLayer.startLinking(linkTypeSelectEl.value);
+  if (linkToolToggleEl.classList.contains("toolbar__button--armed")) {
+    linksLayer.startLinking(linkTypeSelectEl.value);
+  }
+});
+
+measureModeButtonEl.addEventListener("click", () => {
+  const wasActive = measureModeButtonEl.classList.contains("toolbar__button--armed");
+  palette.setArmed(null);
+  componentsLayer.armPlacement(null);
+  exitLinkingAndMeasuring();
+  if (wasActive) return;
+  selectModeButtonEl.classList.remove("toolbar__button--armed");
+  measureModeButtonEl.classList.add("toolbar__button--armed");
+  stage.svgEl.classList.add("stage__svg--measuring");
+  componentsLayer.setSuspended(true);
+  measureTool.setActive(true);
 });
 
 const menuBar = new MenuBar([
   { triggerId: "menu-file-trigger", dropdownId: "menu-file-dropdown" },
   { triggerId: "menu-edit-trigger", dropdownId: "menu-edit-dropdown" },
+  { triggerId: "menu-plan-trigger", dropdownId: "menu-plan-dropdown" },
 ]);
 
 menuBar.onAction("#menu-save-project", () => exportProjectFile(store));
@@ -167,6 +207,14 @@ menuBar.onAction("#menu-clear", () => {
     store.clearFloor(floor.id);
   }
 });
+
+const elementsListDialog = new ElementsListDialog({
+  store,
+  stage,
+  componentsLayer,
+  getFloor: () => getFloorById(floorSelectEl.value),
+});
+menuBar.onAction("#menu-elements-list", () => elementsListDialog.open());
 
 const initialFloor = floors[0];
 floorSelectEl.value = initialFloor.id;

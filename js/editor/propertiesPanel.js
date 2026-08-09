@@ -1,5 +1,5 @@
 import { getCatalogEntry } from "../catalog/components.js";
-import { linkTypes } from "../catalog/linkTypes.js";
+import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
 
 function field(labelText, inputEl) {
   const wrapper = document.createElement("label");
@@ -108,7 +108,47 @@ export class PropertiesPanel {
       this.containerEl.appendChild(field("Profondeur (cm)", heightInput));
     }
 
+    this.renderLiaisonsSection(component);
+
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeComponent(component.id)));
+  }
+
+  // Liste les liaisons connectées à ce composant : pas besoin de cliquer sur le
+  // trait fin de la liaison sur le plan pour voir/éditer son type.
+  renderLiaisonsSection(component) {
+    const liaisons = this.store
+      .getLiaisonsForFloor(component.floorId)
+      .filter((l) => l.fromComponentId === component.id || l.toComponentId === component.id);
+    if (liaisons.length === 0) return;
+
+    const heading = document.createElement("h3");
+    heading.className = "properties__subtitle";
+    heading.textContent = `Liaisons (${liaisons.length})`;
+    this.containerEl.appendChild(heading);
+
+    const components = this.store.getComponentsForFloor(component.floorId);
+    for (const liaison of liaisons) {
+      const otherId = liaison.fromComponentId === component.id ? liaison.toComponentId : liaison.fromComponentId;
+      const other = components.find((c) => c.id === otherId);
+      const otherEntry = other ? getCatalogEntry(other.type) : null;
+      const linkType = getLinkType(liaison.type);
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "properties__liaison-row";
+
+      const swatch = document.createElement("span");
+      swatch.className = "properties__liaison-swatch";
+      swatch.style.background = getComputedStyle(document.documentElement).getPropertyValue(linkType.colorVar).trim();
+      row.appendChild(swatch);
+
+      const text = document.createElement("span");
+      text.textContent = `${linkType.label} → ${other?.label || otherEntry?.label || "composant supprimé"}`;
+      row.appendChild(text);
+
+      row.addEventListener("click", () => this.linksLayer.select(liaison.id));
+      this.containerEl.appendChild(row);
+    }
   }
 
   renderLiaisonProps(liaison) {

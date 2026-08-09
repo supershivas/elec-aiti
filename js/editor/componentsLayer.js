@@ -22,6 +22,7 @@ export class ComponentsLayer {
     this.linkPickHandler = null;
     this.pendingHighlightId = null;
     this.snapTargetId = null;
+    this.suspended = false;
 
     this.stage.svgEl.addEventListener("pointerdown", (event) => this.onStagePointerDown(event));
     this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
@@ -42,6 +43,12 @@ export class ComponentsLayer {
 
   setLinkPickHandler(handler) {
     this.linkPickHandler = handler;
+  }
+
+  // Pendant l'outil de mesure, les clics sur un composant doivent atteindre le
+  // canvas (coordonnées brutes) plutôt que sélectionner/déplacer ce composant.
+  setSuspended(suspended) {
+    this.suspended = suspended;
   }
 
   // Ces deux surbrillances changent potentiellement à chaque pointermove pendant
@@ -144,6 +151,7 @@ export class ComponentsLayer {
   }
 
   onComponentPointerDown(event, component) {
+    if (this.suspended) return;
     event.stopPropagation();
     if (this.linkPickHandler) {
       this.linkPickHandler(component);

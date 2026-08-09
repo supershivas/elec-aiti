@@ -7,13 +7,13 @@
 // shape: 'symbol' -> <use> vers un <symbol> défini dans index.html
 //        'box'     -> rectangle + abréviation texte (pas de pictogramme dédié)
 export const catalog = [
-  { type: "prise", label: "Prise simple", category: "Prises", shape: "symbol", symbolId: "prise" },
-  { type: "prise_double", label: "Prise double", category: "Prises", shape: "symbol", symbolId: "prise-double" },
-  { type: "prise_etanche", label: "Prise étanche", category: "Prises", shape: "symbol", symbolId: "prise-etanche" },
-  { type: "prise_specialisee_plaque", label: "Prise spécialisée plaque de cuisson", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "PL" },
-  { type: "prise_specialisee_four", label: "Prise spécialisée four", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "F" },
-  { type: "prise_specialisee_lave_linge", label: "Prise spécialisée lave-linge", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LL" },
-  { type: "prise_specialisee_lave_vaisselle", label: "Prise spécialisée lave-vaisselle", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LV" },
+  { type: "prise", label: "Prise simple", category: "Prises", shape: "symbol", symbolId: "prise", width: 24, height: 24 },
+  { type: "prise_double", label: "Prise double", category: "Prises", shape: "symbol", symbolId: "prise-double", width: 24, height: 24 },
+  { type: "prise_etanche", label: "Prise étanche", category: "Prises", shape: "symbol", symbolId: "prise-etanche", width: 24, height: 24 },
+  { type: "prise_specialisee_plaque", label: "Prise spécialisée plaque de cuisson", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "PL", width: 24, height: 24 },
+  { type: "prise_specialisee_four", label: "Prise spécialisée four", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "F", width: 24, height: 24 },
+  { type: "prise_specialisee_lave_linge", label: "Prise spécialisée lave-linge", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LL", width: 24, height: 24 },
+  { type: "prise_specialisee_lave_vaisselle", label: "Prise spécialisée lave-vaisselle", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LV", width: 24, height: 24 },
 
   { type: "point_lumineux", label: "Plafonnier", category: "Éclairage", shape: "symbol", symbolId: "plafonnier" },
   { type: "point_lumineux_applique", label: "Applique murale", category: "Éclairage", shape: "symbol", symbolId: "applique" },

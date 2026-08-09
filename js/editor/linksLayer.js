@@ -16,6 +16,7 @@ export class LinksLayer {
     this.onSelect = onSelect;
     this.floorId = null;
     this.selectedId = null;
+    this.highlightedComponentId = null;
     this.linking = null; // { type, fromId }
     this.previewLineEl = null;
 
@@ -48,6 +49,9 @@ export class LinksLayer {
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("liaison");
     if (liaison.id === this.selectedId) group.classList.add("liaison--selected");
+    if (this.highlightedComponentId && (liaison.fromComponentId === this.highlightedComponentId || liaison.toComponentId === this.highlightedComponentId)) {
+      group.classList.add("liaison--connected");
+    }
     group.dataset.liaisonId = liaison.id;
 
     // Couleur résolue en dur (pas de var() vers le token) pour rester correcte
@@ -95,6 +99,15 @@ export class LinksLayer {
   clearSelection() {
     if (!this.selectedId) return;
     this.selectedId = null;
+    this.render();
+  }
+
+  // Met en évidence les liaisons connectées au composant sélectionné (dans
+  // ComponentsLayer), sans avoir à cliquer directement sur le trait fin de la
+  // liaison elle-même.
+  highlightForComponent(componentId) {
+    if (this.highlightedComponentId === componentId) return;
+    this.highlightedComponentId = componentId;
     this.render();
   }
 
