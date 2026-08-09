@@ -1,11 +1,12 @@
-import { getCatalogEntry } from "../catalog/components.js";
+import { getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { isEditingText } from "./domUtils.js";
 import { snapPosition } from "./snapping.js";
 import { promptFurnitureDetails } from "./furnitureDialog.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
-const HITBOX_PADDING = 16;
+const SYMBOL_HITBOX_PADDING = 10;
+const BOX_HITBOX_PADDING = 4;
 const CLICK_THRESHOLD_PX = 6;
 const RESIZE_HANDLE_SIZE = 10;
 const MIN_SIZE_CM = 10;
@@ -92,24 +93,57 @@ export class ComponentsLayer {
     if (component.id === this.selectedId) group.classList.add("component--selected");
     if (component.id === this.pendingHighlightId) group.classList.add("component--link-pending");
     if (component.id === this.snapTargetId) group.classList.add("component--link-target");
-    group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})`);
+    const flip = component.flipped ? " scale(-1,1)" : "";
+    group.setAttribute("transform", `translate(${component.x} ${component.y}) rotate(${component.rotation})${flip}`);
     group.dataset.componentId = component.id;
 
     const width = component.width ?? entry.width ?? DEFAULT_SYMBOL_SIZE;
     const height = component.height ?? entry.height ?? DEFAULT_SYMBOL_SIZE;
 
-    // Zone de clic invisible, plus grande que le pictogramme visible : les symboles
-    // fins (traits d'interrupteur, cercles ouverts) sont sinon très difficiles à sélectionner.
-    const hitboxSize = Math.max(width, height) + HITBOX_PADDING;
+    // Zone de clic invisible. Pour les éléments à emprise réelle (meubles,
+    // électroménager, porte...), elle colle à la forme même (rectangulaire,
+    // pas un carré qui déborderait) ; pour les petits symboles (prises,
+    // interrupteurs...), une marge modeste compense leur trait fin.
+    const isRealFootprint = entry.shape === "box" || entry.shape === "door";
+    const hitboxWidth = isRealFootprint ? width + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
+    const hitboxHeight = isRealFootprint ? height + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
     const hitbox = document.createElementNS(SVG_NS, "rect");
-    hitbox.setAttribute("x", -hitboxSize / 2);
-    hitbox.setAttribute("y", -hitboxSize / 2);
-    hitbox.setAttribute("width", hitboxSize);
-    hitbox.setAttribute("height", hitboxSize);
+    hitbox.setAttribute("x", -hitboxWidth / 2);
+    hitbox.setAttribute("y", -hitboxHeight / 2);
+    hitbox.setAttribute("width", hitboxWidth);
+    hitbox.setAttribute("height", hitboxHeight);
     hitbox.setAttribute("fill", "transparent");
     group.appendChild(hitbox);
 
-    if (entry.shape === "box") {
+    if (entry.shape === "door") {
+      // Vantail (ligne du seuil + vantail ouvert à 90°) et arc de débattement
+      // pointillé, comme sur le plan de fond.
+      const half = width / 2;
+      const hinge = { x: -half, y: half };
+      const leafTip = { x: -half, y: -half };
+      const otherJamb = { x: half, y: half };
+
+      const openingLine = document.createElementNS(SVG_NS, "line");
+      openingLine.setAttribute("x1", hinge.x);
+      openingLine.setAttribute("y1", hinge.y);
+      openingLine.setAttribute("x2", otherJamb.x);
+      openingLine.setAttribute("y2", otherJamb.y);
+      openingLine.classList.add("component__door-line");
+      group.appendChild(openingLine);
+
+      const leafLine = document.createElementNS(SVG_NS, "line");
+      leafLine.setAttribute("x1", hinge.x);
+      leafLine.setAttribute("y1", hinge.y);
+      leafLine.setAttribute("x2", leafTip.x);
+      leafLine.setAttribute("y2", leafTip.y);
+      leafLine.classList.add("component__door-line");
+      group.appendChild(leafLine);
+
+      const arc = document.createElementNS(SVG_NS, "path");
+      arc.setAttribute("d", `M ${leafTip.x} ${leafTip.y} A ${width} ${width} 0 0 1 ${otherJamb.x} ${otherJamb.y}`);
+      arc.classList.add("component__door-arc");
+      group.appendChild(arc);
+    } else if (entry.shape === "box") {
       const rect = document.createElementNS(SVG_NS, "rect");
       rect.setAttribute("x", -width / 2);
       rect.setAttribute("y", -height / 2);
@@ -187,7 +221,8 @@ export class ComponentsLayer {
     if (this.suspended) return;
     event.stopPropagation();
     if (this.linkPickHandler) {
-      this.linkPickHandler(component);
+      const entry = getCatalogEntry(component.type);
+      if (isElectrifiable(component, entry)) this.linkPickHandler(component);
       return;
     }
     // On ne sait pas encore si ce sera un clic (sélection + proposition de
@@ -210,8 +245,10 @@ export class ComponentsLayer {
     if (!component) return;
     this.select(componentId);
     // Pas de proposition de liaison si on est en train de poser un autre
-    // composant depuis la palette : ça n'aurait pas de sens.
-    if (!this.armedType) this.onComponentClicked?.(component);
+    // composant depuis la palette (ça n'aurait pas de sens), ni pour un
+    // élément non électrifié (porte, cloison, meuble non coché "Électrifié").
+    const entry = getCatalogEntry(component.type);
+    if (!this.armedType && isElectrifiable(component, entry)) this.onComponentClicked?.(component);
   }
 
   onStagePointerDown(event) {
@@ -288,11 +325,13 @@ export class ComponentsLayer {
         defaultLabel: entry.label,
         defaultWidth: entry.width,
         defaultHeight: entry.height,
+        showElectrifiedCheckbox: entry.electrical === "optional",
       });
       if (!details) return; // annulé
       extra.label = details.label;
       extra.width = details.width;
       extra.height = details.height;
+      if (entry.electrical === "optional") extra.electrified = details.electrified;
     }
 
     const component = this.store.addComponent({

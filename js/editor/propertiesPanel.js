@@ -1,4 +1,4 @@
-import { catalog, getCatalogEntry } from "../catalog/components.js";
+import { catalog, getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
 
 function field(labelText, inputEl) {
@@ -98,9 +98,40 @@ export class PropertiesPanel {
     rotationRow.append(rotateLeftBtn, rotationValue, rotateRightBtn);
     this.containerEl.appendChild(field("Rotation", rotationRow));
 
+    // Sens d'ouverture (porte) ou toute autre forme à retourner : la rotation
+    // par pas de 90° ne suffit pas seule à couvrir toutes les orientations.
+    if (entry.mirrorable) {
+      const mirrorBtn = document.createElement("button");
+      mirrorBtn.type = "button";
+      mirrorBtn.className = "toolbar__button";
+      mirrorBtn.textContent = "Inverser le sens d'ouverture";
+      mirrorBtn.addEventListener("click", () => {
+        this.store.snapshot();
+        this.store.updateComponent(component.id, { flipped: !component.flipped });
+      });
+      this.containerEl.appendChild(mirrorBtn);
+    }
+
+    // Un meuble personnalisé n'est électrifiable (donc reliable) que si cette
+    // case est cochée ; portes et cloisons n'ont pas ce choix (jamais électrifiées).
+    if (entry.electrical === "optional") {
+      const electrifiedInput = document.createElement("input");
+      electrifiedInput.type = "checkbox";
+      electrifiedInput.checked = component.electrified === true;
+      electrifiedInput.addEventListener("change", () => {
+        this.store.snapshot();
+        this.store.updateComponent(component.id, { electrified: electrifiedInput.checked });
+      });
+      const checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "properties__field properties__field--checkbox";
+      checkboxLabel.append(electrifiedInput, document.createTextNode(" Électrifié"));
+      this.containerEl.appendChild(checkboxLabel);
+    }
+
     // Seuls les composants dimensionnés en cm réels (électroménager, tableau,
-    // meuble) exposent une largeur/profondeur éditable.
+    // meuble, porte) exposent une largeur/profondeur éditable.
     if (entry.width !== undefined) {
+      const isDoor = entry.shape === "door";
       const width = component.width ?? entry.width;
       const height = component.height ?? entry.height;
 
@@ -111,20 +142,24 @@ export class PropertiesPanel {
       widthInput.addEventListener("change", () => {
         const value = Math.max(1, Number(widthInput.value)) || width;
         this.store.snapshot();
-        this.store.updateComponent(component.id, { width: value });
+        // Une porte n'a qu'une seule dimension : le vantail est toujours carré
+        // (largeur d'ouverture = longueur du vantail).
+        this.store.updateComponent(component.id, isDoor ? { width: value, height: value } : { width: value });
       });
-      this.containerEl.appendChild(field("Largeur (cm)", widthInput));
+      this.containerEl.appendChild(field(isDoor ? "Largeur de la porte (cm)" : "Largeur (cm)", widthInput));
 
-      const heightInput = document.createElement("input");
-      heightInput.type = "number";
-      heightInput.min = "1";
-      heightInput.value = height;
-      heightInput.addEventListener("change", () => {
-        const value = Math.max(1, Number(heightInput.value)) || height;
-        this.store.snapshot();
-        this.store.updateComponent(component.id, { height: value });
-      });
-      this.containerEl.appendChild(field("Profondeur (cm)", heightInput));
+      if (!isDoor) {
+        const heightInput = document.createElement("input");
+        heightInput.type = "number";
+        heightInput.min = "1";
+        heightInput.value = height;
+        heightInput.addEventListener("change", () => {
+          const value = Math.max(1, Number(heightInput.value)) || height;
+          this.store.snapshot();
+          this.store.updateComponent(component.id, { height: value });
+        });
+        this.containerEl.appendChild(field("Profondeur (cm)", heightInput));
+      }
     }
 
     this.containerEl.appendChild(

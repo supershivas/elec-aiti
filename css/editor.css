@@ -204,6 +204,17 @@
   resize: vertical;
 }
 
+.properties__field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.properties__field--checkbox input {
+  width: auto;
+  padding: 0;
+}
+
 .properties__rotation {
   display: flex;
   align-items: center;
@@ -451,6 +462,19 @@
   stroke: #fff;
   stroke-width: 1;
   cursor: nwse-resize;
+}
+
+.component__door-line {
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+.component__door-arc {
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
 }
 
 .component--link-pending .component__shape {

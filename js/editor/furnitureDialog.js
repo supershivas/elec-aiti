@@ -11,7 +11,7 @@ function field(labelText, inputEl) {
 // Formulaire de création d'un meuble personnalisé (nom, longueur, largeur),
 // en modale HTML plutôt que des prompt() système. Résout avec les valeurs
 // saisies, ou null si l'utilisateur annule.
-export function promptFurnitureDetails({ defaultLabel, defaultWidth, defaultHeight }) {
+export function promptFurnitureDetails({ defaultLabel, defaultWidth, defaultHeight, showElectrifiedCheckbox = false }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
@@ -53,6 +53,16 @@ export function promptFurnitureDetails({ defaultLabel, defaultWidth, defaultHeig
     heightInput.value = defaultHeight;
     form.appendChild(field("Largeur (cm)", heightInput));
 
+    let electrifiedInput = null;
+    if (showElectrifiedCheckbox) {
+      electrifiedInput = document.createElement("input");
+      electrifiedInput.type = "checkbox";
+      const checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "properties__field properties__field--checkbox";
+      checkboxLabel.append(electrifiedInput, document.createTextNode(" Électrifié"));
+      form.appendChild(checkboxLabel);
+    }
+
     const actions = document.createElement("div");
     actions.className = "modal__actions";
     const cancelBtn = document.createElement("button");
@@ -87,6 +97,7 @@ export function promptFurnitureDetails({ defaultLabel, defaultWidth, defaultHeig
         label: nameInput.value.trim() || defaultLabel,
         width: Math.max(1, Number(widthInput.value)) || defaultWidth,
         height: Math.max(1, Number(heightInput.value)) || defaultHeight,
+        electrified: electrifiedInput ? electrifiedInput.checked : false,
       });
     });
 

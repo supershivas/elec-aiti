@@ -14,7 +14,18 @@ function buildLegendIcon(entry) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("color", "#dc2626");
 
-  if (entry.shape === "box") {
+  if (entry.shape === "door") {
+    const half = LEGEND_ICON_SIZE / 2;
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute(
+      "d",
+      `M ${-half} ${-half} L ${-half} ${half} L ${half} ${-half} M ${-half} ${half} A ${LEGEND_ICON_SIZE} ${LEGEND_ICON_SIZE} 0 0 1 ${half} ${-half}`,
+    );
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "currentColor");
+    path.setAttribute("stroke-width", "1.5");
+    group.appendChild(path);
+  } else if (entry.shape === "box") {
     const rect = document.createElementNS(SVG_NS, "rect");
     rect.setAttribute("x", -LEGEND_ICON_SIZE / 2);
     rect.setAttribute("y", -LEGEND_ICON_SIZE / 2);
@@ -107,6 +118,8 @@ function buildExportSvgString(stage, floor, store) {
     .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .component__label { fill: currentColor; font: 600 9px sans-serif; }
     .component__badge { fill: currentColor; font: 600 6px sans-serif; }
+    .component__door-line { stroke: currentColor; stroke-width: 2; fill: none; }
+    .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
   `;
   clone.insertBefore(style, clone.firstChild);

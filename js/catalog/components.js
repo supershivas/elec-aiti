@@ -6,6 +6,7 @@
 //
 // shape: 'symbol' -> <use> vers un <symbol> défini dans index.html
 //        'box'     -> rectangle + abréviation texte (pas de pictogramme dédié)
+//        'door'    -> vantail + arc de débattement pointillé, comme sur le plan de fond
 export const catalog = [
   { type: "prise", label: "Prise simple", category: "Prises", shape: "symbol", symbolId: "prise", width: 24, height: 24 },
   { type: "prise_double", label: "Prise double", category: "Prises", shape: "symbol", symbolId: "prise-double", width: 24, height: 24 },
@@ -40,8 +41,15 @@ export const catalog = [
   { type: "sanitaire_wc", label: "Toilettes (WC)", category: "Sanitaire", shape: "box", abbr: "WC", width: 40, height: 60 },
   { type: "sanitaire_lavabo", label: "Lavabo", category: "Sanitaire", shape: "box", abbr: "LB", width: 55, height: 45 },
 
-  // Rectangle libre : taille et nom demandés à la pose (voir ComponentsLayer.placeComponent)
-  { type: "meuble_personnalise", label: "Meuble personnalisé", category: "Mobilier", shape: "box", customizable: true, width: 60, height: 60 },
+  // Rectangle libre : taille et nom demandés à la pose (voir ComponentsLayer.placeComponent).
+  // "electrical: optional" -> case à cocher "Électrifié" dans la modale, par défaut non.
+  { type: "meuble_personnalise", label: "Meuble personnalisé", category: "Mobilier", shape: "box", customizable: true, electrical: "optional", width: 60, height: 60 },
+
+  // Repère d'ouverture, pas électrique : largeur = largeur de porte standard,
+  // orientation via rotation (90° par 90°) + inversion du sens d'ouverture.
+  { type: "porte", label: "Porte", category: "Structure", shape: "door", mirrorable: true, electrical: false, width: 80, height: 80 },
+  // Cloison ajoutée au plan : taille libre comme le meuble personnalisé, jamais électrifiée.
+  { type: "cloison", label: "Cloison", category: "Structure", shape: "box", customizable: true, electrical: false, width: 100, height: 10 },
 ];
 
 export function getCatalogEntry(type) {
@@ -50,4 +58,14 @@ export function getCatalogEntry(type) {
 
 export function getCategories() {
   return [...new Set(catalog.map((entry) => entry.category))];
+}
+
+// Une liaison électrique n'a de sens qu'entre éléments électrifiés : les portes
+// et cloisons ne le sont jamais, le meuble personnalisé seulement si la case
+// "Électrifié" a été cochée à la pose (défaut : non).
+export function isElectrifiable(component, entry) {
+  if (!entry) return false;
+  if (entry.electrical === false) return false;
+  if (entry.electrical === "optional") return component.electrified === true;
+  return true;
 }
