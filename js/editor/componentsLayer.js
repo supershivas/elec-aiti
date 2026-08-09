@@ -1,5 +1,6 @@
 import { getCatalogEntry } from "../catalog/components.js";
 import { isEditingText } from "./domUtils.js";
+import { snapPosition } from "./snapping.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
@@ -8,16 +9,17 @@ const CLICK_THRESHOLD_PX = 6;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
-  constructor({ layerEl, stage, store, onPlacementConsumed, onSelect }) {
+  constructor({ layerEl, stage, store, onPlacementConsumed, onSelect, onComponentClicked }) {
     this.layerEl = layerEl;
     this.stage = stage;
     this.store = store;
     this.onPlacementConsumed = onPlacementConsumed;
     this.onSelect = onSelect;
+    this.onComponentClicked = onComponentClicked;
     this.floorId = null;
     this.armedType = null;
     this.selectedId = null;
-    this.dragState = null;
+    this.pendingDrag = null;
     this.placementStart = null;
     this.linkPickHandler = null;
     this.pendingHighlightId = null;
@@ -157,16 +159,28 @@ export class ComponentsLayer {
       this.linkPickHandler(component);
       return;
     }
-    this.select(component.id);
-    this.dragState = {
+    // On ne sait pas encore si ce sera un clic (sélection + proposition de
+    // liaison) ou un glissé (déplacement) : voir onStagePointerMove/Up.
+    this.pendingDrag = {
       pointerId: event.pointerId,
       componentId: component.id,
+      startClient: { x: event.clientX, y: event.clientY },
       startPoint: this.stage.clientToViewBoxPoint(event.clientX, event.clientY),
       startX: component.x,
       startY: component.y,
+      dragging: false,
       snapshotted: false,
     };
     this.layerEl.setPointerCapture(event.pointerId);
+  }
+
+  handleComponentClick(componentId) {
+    const component = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === componentId);
+    if (!component) return;
+    this.select(componentId);
+    // Pas de proposition de liaison si on est en train de poser un autre
+    // composant depuis la palette : ça n'aurait pas de sens.
+    if (!this.armedType) this.onComponentClicked?.(component);
   }
 
   onStagePointerDown(event) {
@@ -178,26 +192,35 @@ export class ComponentsLayer {
   }
 
   onStagePointerMove(event) {
-    if (!this.dragState || this.dragState.pointerId !== event.pointerId) return;
-    if (!this.dragState.snapshotted) {
+    if (!this.pendingDrag || this.pendingDrag.pointerId !== event.pointerId) return;
+    const drag = this.pendingDrag;
+    if (!drag.dragging) {
+      const movedPx = Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y);
+      if (movedPx < CLICK_THRESHOLD_PX) return;
+      drag.dragging = true;
       // Un seul snapshot pour tout le glissé, pris au premier mouvement réel
       // (pas au pointerdown, sinon un simple clic de sélection consommerait
       // un cran d'annulation pour rien).
       this.store.snapshot();
-      this.dragState.snapshotted = true;
     }
     const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
-    const dx = point.x - this.dragState.startPoint.x;
-    const dy = point.y - this.dragState.startPoint.y;
-    this.store.updateComponent(this.dragState.componentId, {
-      x: this.dragState.startX + dx,
-      y: this.dragState.startY + dy,
-    });
+    const rawX = drag.startX + (point.x - drag.startPoint.x);
+    const rawY = drag.startY + (point.y - drag.startPoint.y);
+
+    const component = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === drag.componentId);
+    const entry = component && getCatalogEntry(component.type);
+    const { x, y } = entry
+      ? snapPosition(component, entry, rawX, rawY, this.store.getComponentsForFloor(this.floorId))
+      : { x: rawX, y: rawY };
+
+    this.store.updateComponent(drag.componentId, { x, y });
   }
 
   onStagePointerUp(event) {
-    if (this.dragState && this.dragState.pointerId === event.pointerId) {
-      this.dragState = null;
+    if (this.pendingDrag && this.pendingDrag.pointerId === event.pointerId) {
+      const { dragging, componentId } = this.pendingDrag;
+      this.pendingDrag = null;
+      if (!dragging) this.handleComponentClick(componentId);
       return;
     }
     if (!this.placementStart || this.placementStart.pointerId !== event.pointerId) return;

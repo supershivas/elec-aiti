@@ -10,6 +10,7 @@ import { ElementsListDialog } from "./editor/elementsList.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
+import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
 
@@ -23,7 +24,6 @@ const measureLayerEl = document.querySelector("#measure-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
-const linkToolToggleEl = document.querySelector("#link-tool-toggle");
 const selectModeButtonEl = document.querySelector("#mode-select");
 const measureModeButtonEl = document.querySelector("#mode-measure");
 const importFileInputEl = document.querySelector("#import-file-input");
@@ -66,11 +66,15 @@ const componentsLayer = new ComponentsLayer({
     syncCrossHighlight();
     propertiesPanel.refresh();
   },
+  // Clic simple (pas un glissé) sur un composant déjà posé : propose aussitôt
+  // une liaison vers le prochain élément cliqué, sans outil à armer.
+  onComponentClicked: (component) => linksLayer.beginFrom(component, linkTypeSelectEl.value),
 });
 const palette = new Palette({
   containerEl: paletteEl,
   onArm: (type) => {
-    exitLinkingAndMeasuring();
+    exitMeasuring();
+    linksLayer.stopLinking();
     componentsLayer.armPlacement(type);
   },
 });
@@ -125,53 +129,44 @@ floorSelectEl.addEventListener("change", () => {
 });
 
 // --- Modes d'interaction -------------------------------------------------
-// Un seul outil actif à la fois : sélection (défaut), pose depuis la palette,
-// tracé de liaison, ou mesure. Chaque outil sait comment se désarmer proprement.
-function exitLinkingAndMeasuring() {
-  linksLayer.stopLinking();
-  linkToolToggleEl.classList.remove("toolbar__button--armed");
+// La liaison se propose directement au clic sur un composant (voir
+// onComponentClicked plus haut), plus besoin d'un outil "Tracer" à armer.
+// Il reste deux modes exclusifs : sélection (défaut) et mesure.
+function exitMeasuring() {
+  if (!measureModeButtonEl.classList.contains("toolbar__button--armed")) return;
   measureTool.setActive(false);
   measureModeButtonEl.classList.remove("toolbar__button--armed");
   componentsLayer.setSuspended(false);
-  stage.svgEl.classList.remove("stage__svg--linking", "stage__svg--measuring");
+  stage.svgEl.classList.remove("stage__svg--measuring");
   selectModeButtonEl.classList.add("toolbar__button--armed");
 }
 
 selectModeButtonEl.addEventListener("click", () => {
   palette.setArmed(null);
   componentsLayer.armPlacement(null);
-  exitLinkingAndMeasuring();
-});
-
-linkToolToggleEl.addEventListener("click", () => {
-  const wasActive = linkToolToggleEl.classList.contains("toolbar__button--armed");
-  palette.setArmed(null);
-  componentsLayer.armPlacement(null);
-  exitLinkingAndMeasuring();
-  if (wasActive) return;
-  selectModeButtonEl.classList.remove("toolbar__button--armed");
-  linkToolToggleEl.classList.add("toolbar__button--armed");
-  stage.svgEl.classList.add("stage__svg--linking");
-  linksLayer.startLinking(linkTypeSelectEl.value);
-});
-
-linkTypeSelectEl.addEventListener("change", () => {
-  if (linkToolToggleEl.classList.contains("toolbar__button--armed")) {
-    linksLayer.startLinking(linkTypeSelectEl.value);
-  }
+  linksLayer.stopLinking();
+  exitMeasuring();
 });
 
 measureModeButtonEl.addEventListener("click", () => {
   const wasActive = measureModeButtonEl.classList.contains("toolbar__button--armed");
   palette.setArmed(null);
   componentsLayer.armPlacement(null);
-  exitLinkingAndMeasuring();
+  linksLayer.stopLinking();
+  exitMeasuring();
   if (wasActive) return;
   selectModeButtonEl.classList.remove("toolbar__button--armed");
   measureModeButtonEl.classList.add("toolbar__button--armed");
   stage.svgEl.classList.add("stage__svg--measuring");
   componentsLayer.setSuspended(true);
   measureTool.setActive(true);
+});
+
+// Échap : désélectionne, annule une liaison en attente (déjà géré dans
+// ComponentsLayer/LinksLayer), et sort du mode mesure.
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || isEditingText(event.target)) return;
+  exitMeasuring();
 });
 
 const menuBar = new MenuBar([

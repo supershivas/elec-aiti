@@ -116,46 +116,43 @@ export class LinksLayer {
     return this.store.getLiaisonsForFloor(this.floorId).find((l) => l.id === this.selectedId) ?? null;
   }
 
-  startLinking(type) {
-    this.linking = { type, fromId: null };
-    this.componentsLayer.setLinkPickHandler((component) => this.pick(component));
+  // Démarre une liaison en attente depuis un composant qu'on vient de cliquer
+  // (clic simple, pas de glissé) : pas besoin d'armer un outil "Tracer" au
+  // préalable, ça se propose directement.
+  beginFrom(component, type) {
+    this.linking = { type, fromId: component.id };
+    this.componentsLayer.setLinkPickHandler((c) => this.pick(c));
+    this.componentsLayer.setPendingHighlight(component.id);
+    this.stage.svgEl.classList.add("stage__svg--linking");
+    this.showPreviewLine();
   }
 
   stopLinking() {
+    if (!this.linking) return;
     this.linking = null;
     this.componentsLayer.setLinkPickHandler(null);
     this.componentsLayer.setPendingHighlight(null);
     this.componentsLayer.setSnapHighlight(null);
+    this.stage.svgEl.classList.remove("stage__svg--linking");
     this.removePreviewLine();
   }
 
   pick(component) {
     if (!this.linking) return;
-    if (!this.linking.fromId) {
-      this.linking.fromId = component.id;
-      this.componentsLayer.setPendingHighlight(component.id);
-      this.showPreviewLine();
-      return;
-    }
     if (this.linking.fromId === component.id) {
       // Reclic sur le même composant : on annule la liaison en cours plutôt
       // que de créer une liaison vers soi-même.
-      this.linking.fromId = null;
-      this.componentsLayer.setPendingHighlight(null);
-      this.componentsLayer.setSnapHighlight(null);
-      this.removePreviewLine();
+      this.stopLinking();
       return;
     }
-    this.store.addLiaison({
+    const liaison = this.store.addLiaison({
       floorId: this.floorId,
       type: this.linking.type,
       fromComponentId: this.linking.fromId,
       toComponentId: component.id,
     });
-    this.linking.fromId = null;
-    this.componentsLayer.setPendingHighlight(null);
-    this.componentsLayer.setSnapHighlight(null);
-    this.removePreviewLine();
+    this.stopLinking();
+    this.select(liaison.id);
   }
 
   // Ligne pointillée qui suit le curseur pendant le tracé, avec "aimantation"
@@ -197,13 +194,19 @@ export class LinksLayer {
   }
 
   onKeyDown(event) {
-    if (!this.selectedId || isEditingText(event.target)) return;
+    if (isEditingText(event.target)) return;
+    if (event.key === "Escape") {
+      // Échap annule aussi une liaison en attente, même si rien n'est
+      // sélectionné (le composant de départ peut avoir été désélectionné).
+      this.stopLinking();
+      if (this.selectedId) this.select(null);
+      return;
+    }
+    if (!this.selectedId) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       this.store.removeLiaison(this.selectedId);
       this.selectedId = null;
-    } else if (event.key === "Escape") {
-      this.select(null);
     }
   }
 }
