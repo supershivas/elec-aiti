@@ -1,4 +1,4 @@
-import { getCatalogEntry } from "../catalog/components.js";
+import { catalog, getCatalogEntry } from "../catalog/components.js";
 import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
 
 function field(labelText, inputEl) {
@@ -45,6 +45,25 @@ export class PropertiesPanel {
     title.className = "properties__title";
     title.textContent = entry.label;
     this.containerEl.appendChild(title);
+
+    // Changer de type au sein de la même famille (ex: interrupteur simple ->
+    // va-et-vient, ou plafonnier -> spot) sans avoir à supprimer/reposer.
+    const family = catalog.filter((c) => c.category === entry.category);
+    if (family.length > 1) {
+      const typeSelect = document.createElement("select");
+      for (const familyEntry of family) {
+        const option = document.createElement("option");
+        option.value = familyEntry.type;
+        option.textContent = familyEntry.label;
+        if (familyEntry.type === component.type) option.selected = true;
+        typeSelect.appendChild(option);
+      }
+      typeSelect.addEventListener("change", () => {
+        this.store.snapshot();
+        this.store.updateComponent(component.id, { type: typeSelect.value });
+      });
+      this.containerEl.appendChild(field("Type", typeSelect));
+    }
 
     const labelInput = document.createElement("input");
     labelInput.type = "text";
