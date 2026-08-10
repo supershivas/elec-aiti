@@ -13,16 +13,17 @@ function seedFloors() {
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [] };
+    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [] };
     const parsed = JSON.parse(raw);
     return {
       floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
       components: Array.isArray(parsed.components) ? parsed.components : [],
       liaisons: Array.isArray(parsed.liaisons) ? parsed.liaisons : [],
       walls: Array.isArray(parsed.walls) ? parsed.walls : [],
+      openings: Array.isArray(parsed.openings) ? parsed.openings : [],
     };
   } catch {
-    return { floors: seedFloors(), components: [], liaisons: [], walls: [] };
+    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [] };
   }
 }
 
@@ -64,6 +65,7 @@ export class Store {
         components: this.state.components,
         liaisons: this.state.liaisons,
         walls: this.state.walls,
+        openings: this.state.openings,
       }),
     );
     if (this.history.length > MAX_HISTORY) this.history.shift();
@@ -81,6 +83,7 @@ export class Store {
     this.state.components = parsed.components;
     this.state.liaisons = parsed.liaisons;
     this.state.walls = parsed.walls ?? [];
+    this.state.openings = parsed.openings ?? [];
     this.notify();
     return true;
   }
@@ -124,6 +127,7 @@ export class Store {
     }
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== id);
     this.state.walls = this.state.walls.filter((w) => w.floorId !== id);
+    this.state.openings = this.state.openings.filter((o) => o.floorId !== id);
     this.notify();
     return true;
   }
@@ -261,6 +265,44 @@ export class Store {
   removeWall(id) {
     this.snapshot();
     this.state.walls = this.state.walls.filter((w) => w.id !== id);
+    // Une ouverture qui découpait ce mur n'a plus de support
+    this.state.openings = this.state.openings.filter((o) => o.wallId !== id);
+    this.notify();
+  }
+
+  getOpeningsForFloor(floorId) {
+    return this.state.openings.filter((opening) => opening.floorId === floorId);
+  }
+
+  getOpeningsForWall(wallId) {
+    return this.state.openings.filter((opening) => opening.wallId === wallId);
+  }
+
+  getOpeningById(id) {
+    return this.state.openings.find((opening) => opening.id === id);
+  }
+
+  // offset = distance depuis (x1,y1) du mur porteur ; type détermine le rendu
+  // (vantail+arc pour une porte, simple découpe pour une fenêtre).
+  addOpening({ floorId, wallId, offset, width = 80, type = "porte" }) {
+    this.snapshot();
+    const opening = { id: createId("o"), floorId, wallId, offset, width, type };
+    this.state.openings.push(opening);
+    this.notify();
+    return opening;
+  }
+
+  updateOpening(id, changes) {
+    const opening = this.state.openings.find((o) => o.id === id);
+    if (!opening) return;
+    this.snapshot();
+    Object.assign(opening, changes);
+    this.notify();
+  }
+
+  removeOpening(id) {
+    this.snapshot();
+    this.state.openings = this.state.openings.filter((o) => o.id !== id);
     this.notify();
   }
 
@@ -273,6 +315,7 @@ export class Store {
       components: Array.isArray(data?.components) ? data.components : [],
       liaisons: Array.isArray(data?.liaisons) ? data.liaisons : [],
       walls: Array.isArray(data?.walls) ? data.walls : [],
+      openings: Array.isArray(data?.openings) ? data.openings : [],
     };
     this.notify();
   }
@@ -290,6 +333,7 @@ export class Store {
     }
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== floorId);
     this.state.walls = this.state.walls.filter((w) => w.floorId !== floorId);
+    this.state.openings = this.state.openings.filter((o) => o.floorId !== floorId);
     this.notify();
   }
 }

@@ -17,6 +17,7 @@ export async function exportProjectFile(store) {
       components: store.state.components,
       liaisons: store.state.liaisons,
       walls: store.state.walls,
+      openings: store.state.openings,
     },
     null,
     2,

@@ -111,10 +111,20 @@ Liaison {
   de 1cm (10cm avec Maj), et déplacent ensemble toutes les extrémités de murs qui y
   coïncident pour garder les murs connectés ; un glissé à la souris fait de même, avec un
   nouveau snap possible vers un autre coin existant.
-- **Ouvertures (à faire)** : `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }`,
-  qui découpe visuellement le mur porteur (`offset` = distance depuis (x1,y1)). Remplace,
-  pour les étages dessinés, le composant "Porte" posé par-dessus (celui-ci reste utile
-  pour repérer une porte sur les plans importés, où on ne peut pas creuser le mur).
+- **Ouvertures (fait, bêta uniquement)** : `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }`
+  dans `state.js`, scopé par `floorId`. `offset` = distance depuis (x1,y1) du mur porteur.
+  Découpe visuellement le mur porteur : `WallsLayer` scinde le rectangle du mur en
+  segments pleins de part et d'autre de chaque ouverture (`js/editor/wallsLayer.js`,
+  `renderOpening`/`buildWallSegmentShape`), et dessine le vantail + arc de débattement
+  pointillé pour une porte (même convention que le composant "Porte" des plans importés,
+  qui reste utile là où on ne peut pas creuser le mur), ou un simple remplissage de
+  vitrage pour une fenêtre. Outil Ouvertures (`js/editor/openingTool.js`) : clic sur un
+  mur pour y poser une ouverture centrée sur le point cliqué (position/largeur/type
+  modifiables ensuite dans le panneau de propriétés). Bouton de mode et sélecteur de
+  type présents uniquement dans `beta/index.html` (absents du DOM de l'appli principale,
+  `main.js` s'y adapte via des vérifications de nullité) : le rendu des ouvertures reste
+  disponible partout (import d'un projet créé en bêta), mais la pose est bêta seulement
+  tant que la fonctionnalité n'a pas rejoint la version stable.
 - **Pièces (à faire)** : `RoomArea { id, floorId, points: [{x,y}, ...], label? }`, polygone
   fermé tracé à la main (pas de détection automatique de boucle fermée à partir des murs :
   trop complexe pour la valeur ajoutée en v1), avec remplissage + label optionnel.

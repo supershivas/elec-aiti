@@ -663,6 +663,43 @@
   pointer-events: none;
 }
 
+.opening {
+  cursor: pointer;
+}
+
+.opening__hit {
+  stroke: transparent;
+  fill: none;
+}
+
+.opening__door-line {
+  stroke: var(--color-plan-stroke);
+  stroke-width: 2;
+  fill: none;
+  pointer-events: none;
+}
+
+.opening__door-arc {
+  stroke: var(--color-plan-stroke);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
+  pointer-events: none;
+}
+
+.opening__window {
+  fill: var(--color-bg-panel);
+  stroke: var(--color-plan-stroke);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.opening--selected .opening__door-line,
+.opening--selected .opening__door-arc,
+.opening--selected .opening__window {
+  stroke: var(--color-accent);
+}
+
 .stage__error {
   position: absolute;
   inset: 0;

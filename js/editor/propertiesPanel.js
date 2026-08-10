@@ -27,6 +27,7 @@ export class PropertiesPanel {
     const component = this.componentsLayer.getSelectedComponent();
     const liaison = component ? null : this.linksLayer.getSelectedLiaison();
     const wall = component || liaison ? null : this.wallsLayer.getSelectedWall();
+    const opening = component || liaison || wall ? null : this.wallsLayer.getSelectedOpening();
     this.containerEl.replaceChildren();
 
     // Titre du panneau lui-même (h2, cohérent avec le h1 du bandeau du haut) :
@@ -42,10 +43,12 @@ export class PropertiesPanel {
       this.renderLiaisonProps(liaison);
     } else if (wall) {
       this.renderWallProps(wall);
+    } else if (opening) {
+      this.renderOpeningProps(opening);
     } else {
       const empty = document.createElement("p");
       empty.className = "properties__empty";
-      empty.textContent = "Sélectionnez un composant, une liaison ou un mur pour voir ses propriétés.";
+      empty.textContent = "Sélectionnez un composant, une liaison, un mur ou une ouverture pour voir ses propriétés.";
       this.containerEl.appendChild(empty);
     }
   }
@@ -376,6 +379,67 @@ export class PropertiesPanel {
     this.containerEl.appendChild(divider);
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeWall(wall.id)));
+  }
+
+  renderOpeningProps(opening) {
+    const wall = this.store.getWallById(opening.wallId);
+
+    const title = document.createElement("h3");
+    title.className = "properties__title";
+    title.textContent = opening.type === "fenetre" ? "Fenêtre" : "Porte";
+    this.containerEl.appendChild(title);
+
+    const typeSelect = document.createElement("select");
+    for (const [value, label] of [
+      ["porte", "Porte"],
+      ["fenetre", "Fenêtre"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      if (opening.type === value) option.selected = true;
+      typeSelect.appendChild(option);
+    }
+    typeSelect.addEventListener("change", () => {
+      this.store.snapshot();
+      this.store.updateOpening(opening.id, { type: typeSelect.value });
+    });
+    this.containerEl.appendChild(field("Type", typeSelect));
+
+    const widthInput = document.createElement("input");
+    widthInput.type = "number";
+    widthInput.min = "1";
+    widthInput.value = opening.width;
+    widthInput.addEventListener("change", () => {
+      const value = Math.max(1, Number(widthInput.value)) || opening.width;
+      this.store.snapshot();
+      this.store.updateOpening(opening.id, { width: value });
+    });
+    this.containerEl.appendChild(field("Largeur (cm)", widthInput));
+
+    const offsetInput = document.createElement("input");
+    offsetInput.type = "number";
+    offsetInput.min = "0";
+    offsetInput.value = Math.round(opening.offset);
+    offsetInput.addEventListener("change", () => {
+      const value = Math.max(0, Number(offsetInput.value)) || 0;
+      this.store.snapshot();
+      this.store.updateOpening(opening.id, { offset: value });
+    });
+    this.containerEl.appendChild(field("Position sur le mur (cm depuis l'extrémité 1)", offsetInput));
+
+    if (wall) {
+      const info = document.createElement("p");
+      info.className = "properties__empty";
+      info.textContent = `Sur un mur de ${Math.round(Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1))} cm de long.`;
+      this.containerEl.appendChild(info);
+    }
+
+    const divider = document.createElement("hr");
+    divider.className = "properties__divider";
+    this.containerEl.appendChild(divider);
+
+    this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeOpening(opening.id)));
   }
 
   buildDeleteButton(onDelete) {

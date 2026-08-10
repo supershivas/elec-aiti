@@ -13,7 +13,7 @@ const ARROW_STEP_SHIFT = 10; // cm avec Maj enfoncée
 // indépendante de chaque côté (thicknessLeft/thicknessRight) : le segment
 // n'est pas forcément le centre du mur, ce qui permet par exemple un mur
 // extérieur dont toute l'épaisseur part vers l'extérieur.
-function wallGeometry(wall) {
+export function wallGeometry(wall) {
   const dx = wall.x2 - wall.x1;
   const dy = wall.y2 - wall.y1;
   const len = Math.hypot(dx, dy) || 1;
@@ -25,14 +25,29 @@ function wallGeometry(wall) {
   return { ux, uy, nx, ny };
 }
 
-function wallPolygonPoints(wall) {
+function wallLength(wall) {
+  return Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1);
+}
+
+// Point à une distance paramétrique `d` depuis (x1,y1) le long du mur.
+function pointAt(wall, d) {
+  const { ux, uy } = wallGeometry(wall);
+  return { x: wall.x1 + ux * d, y: wall.y1 + uy * d };
+}
+
+// Rectangle (épaisseur indépendante de chaque côté) du mur entre les
+// distances paramétriques d0 et d1 : permet de découper le rendu en
+// plusieurs segments de part et d'autre des ouvertures.
+function wallPolygonPoints(wall, d0 = 0, d1 = wallLength(wall)) {
   const { nx, ny } = wallGeometry(wall);
   const l = wall.thicknessLeft;
   const r = wall.thicknessRight;
-  const p1a = { x: wall.x1 + nx * l, y: wall.y1 + ny * l };
-  const p2a = { x: wall.x2 + nx * l, y: wall.y2 + ny * l };
-  const p2b = { x: wall.x2 - nx * r, y: wall.y2 - ny * r };
-  const p1b = { x: wall.x1 - nx * r, y: wall.y1 - ny * r };
+  const a = pointAt(wall, d0);
+  const b = pointAt(wall, d1);
+  const p1a = { x: a.x + nx * l, y: a.y + ny * l };
+  const p2a = { x: b.x + nx * l, y: b.y + ny * l };
+  const p2b = { x: b.x - nx * r, y: b.y - ny * r };
+  const p1b = { x: a.x - nx * r, y: a.y - ny * r };
   return [p1a, p2a, p2b, p1b];
 }
 
@@ -59,6 +74,7 @@ export class WallsLayer {
     this.floorId = null;
     this.selectedId = null;
     this.selectedVertex = null; // { x, y } | null, exclusif avec selectedId
+    this.selectedOpeningId = null; // exclusif avec selectedId/selectedVertex
     this.suspended = false;
     this.pendingDrag = null;
     this.vertexDrag = null;
@@ -72,6 +88,7 @@ export class WallsLayer {
     this.floorId = floorId;
     this.selectedId = null;
     this.selectedVertex = null;
+    this.selectedOpeningId = null;
     this.render();
   }
 
@@ -84,7 +101,8 @@ export class WallsLayer {
     if (!this.floorId) return;
     const walls = this.store.getWallsForFloor(this.floorId);
     for (const wall of walls) {
-      this.layerEl.appendChild(this.renderWall(wall));
+      const openings = this.store.getOpeningsForWall(wall.id).slice().sort((a, b) => a.offset - b.offset);
+      this.layerEl.appendChild(this.renderWall(wall, openings));
     }
     for (const vertex of groupWallVertices(walls)) {
       this.layerEl.appendChild(this.renderJoint(vertex, walls));
@@ -144,7 +162,7 @@ export class WallsLayer {
     return marker;
   }
 
-  renderWall(wall) {
+  renderWall(wall, openings = []) {
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("wall");
     if (wall.id === this.selectedId) group.classList.add("wall--selected");
@@ -161,10 +179,21 @@ export class WallsLayer {
     hit.setAttribute("stroke-width", wall.thicknessLeft + wall.thicknessRight + HIT_PADDING * 2);
     group.appendChild(hit);
 
-    const shape = document.createElementNS(SVG_NS, "polygon");
-    shape.classList.add("wall__shape");
-    shape.setAttribute("points", wallPolygonPoints(wall).map((p) => `${p.x},${p.y}`).join(" "));
-    group.appendChild(shape);
+    // Le rectangle plein est découpé en segments qui évitent les ouvertures
+    // (une porte/fenêtre ne doit pas être recouverte par le mur).
+    const length = wallLength(wall);
+    let cursor = 0;
+    for (const opening of openings) {
+      const start = Math.max(cursor, Math.min(opening.offset, length));
+      const end = Math.max(cursor, Math.min(opening.offset + opening.width, length));
+      if (start > cursor) group.appendChild(this.buildWallSegmentShape(wall, cursor, start));
+      cursor = Math.max(cursor, end);
+    }
+    if (cursor < length) group.appendChild(this.buildWallSegmentShape(wall, cursor, length));
+
+    for (const opening of openings) {
+      group.appendChild(this.renderOpening(wall, opening));
+    }
 
     // Petit repère perpendiculaire du côté 1, uniquement sur le mur
     // sélectionné : sans lui, impossible de savoir visuellement à quelle face
@@ -186,6 +215,73 @@ export class WallsLayer {
     group.appendChild(title);
 
     group.addEventListener("pointerdown", (event) => this.onWallPointerDown(event, wall));
+    return group;
+  }
+
+  buildWallSegmentShape(wall, d0, d1) {
+    const shape = document.createElementNS(SVG_NS, "polygon");
+    shape.classList.add("wall__shape");
+    shape.setAttribute("points", wallPolygonPoints(wall, d0, d1).map((p) => `${p.x},${p.y}`).join(" "));
+    return shape;
+  }
+
+  // Porte : vantail + arc de débattement pointillé (même convention que le
+  // composant "Porte" posé sur les plans importés). Fenêtre : simple découpe
+  // avec un remplissage fin représentant le vitrage, sans battant.
+  renderOpening(wall, opening) {
+    const group = document.createElementNS(SVG_NS, "g");
+    group.classList.add("opening");
+    if (opening.id === this.selectedOpeningId) group.classList.add("opening--selected");
+    group.dataset.openingId = opening.id;
+
+    const { nx, ny } = wallGeometry(wall);
+    const hinge = pointAt(wall, opening.offset);
+    const otherJamb = pointAt(wall, opening.offset + opening.width);
+
+    if (opening.type === "fenetre") {
+      const shape = document.createElementNS(SVG_NS, "polygon");
+      shape.classList.add("opening__window");
+      shape.setAttribute("points", wallPolygonPoints(wall, opening.offset, opening.offset + opening.width).map((p) => `${p.x},${p.y}`).join(" "));
+      group.appendChild(shape);
+    } else {
+      const leafTip = { x: hinge.x + nx * opening.width, y: hinge.y + ny * opening.width };
+      const openingLine = document.createElementNS(SVG_NS, "line");
+      openingLine.setAttribute("x1", hinge.x);
+      openingLine.setAttribute("y1", hinge.y);
+      openingLine.setAttribute("x2", otherJamb.x);
+      openingLine.setAttribute("y2", otherJamb.y);
+      openingLine.classList.add("opening__door-line");
+      group.appendChild(openingLine);
+
+      const leafLine = document.createElementNS(SVG_NS, "line");
+      leafLine.setAttribute("x1", hinge.x);
+      leafLine.setAttribute("y1", hinge.y);
+      leafLine.setAttribute("x2", leafTip.x);
+      leafLine.setAttribute("y2", leafTip.y);
+      leafLine.classList.add("opening__door-line");
+      group.appendChild(leafLine);
+
+      const arc = document.createElementNS(SVG_NS, "path");
+      arc.setAttribute("d", `M ${leafTip.x} ${leafTip.y} A ${opening.width} ${opening.width} 0 0 1 ${otherJamb.x} ${otherJamb.y}`);
+      arc.classList.add("opening__door-arc");
+      group.appendChild(arc);
+    }
+
+    const hitWidth = Math.max(wall.thicknessLeft, wall.thicknessRight) * 2 + HIT_PADDING * 2;
+    const hit = document.createElementNS(SVG_NS, "line");
+    hit.classList.add("opening__hit");
+    hit.setAttribute("x1", hinge.x);
+    hit.setAttribute("y1", hinge.y);
+    hit.setAttribute("x2", otherJamb.x);
+    hit.setAttribute("y2", otherJamb.y);
+    hit.setAttribute("stroke-width", hitWidth);
+    group.appendChild(hit);
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = opening.type === "fenetre" ? "Fenêtre" : "Porte";
+    group.appendChild(title);
+
+    group.addEventListener("pointerdown", (event) => this.onOpeningPointerDown(event, opening));
     return group;
   }
 
@@ -289,6 +385,7 @@ export class WallsLayer {
   select(id) {
     this.selectedId = id;
     this.selectedVertex = null;
+    this.selectedOpeningId = null;
     this.render();
     this.onSelect?.(id);
   }
@@ -299,20 +396,41 @@ export class WallsLayer {
   selectVertex(point, { silent = false } = {}) {
     this.selectedId = null;
     this.selectedVertex = point;
+    this.selectedOpeningId = null;
     this.render();
     if (!silent) this.onSelect?.(null);
   }
 
-  clearSelection() {
-    if (!this.selectedId && !this.selectedVertex) return;
+  selectOpening(id) {
     this.selectedId = null;
     this.selectedVertex = null;
+    this.selectedOpeningId = id;
+    this.render();
+    this.onSelect?.(null);
+  }
+
+  clearSelection() {
+    if (!this.selectedId && !this.selectedVertex && !this.selectedOpeningId) return;
+    this.selectedId = null;
+    this.selectedVertex = null;
+    this.selectedOpeningId = null;
     this.render();
   }
 
   getSelectedWall() {
     if (!this.selectedId || !this.floorId) return null;
     return this.store.getWallsForFloor(this.floorId).find((w) => w.id === this.selectedId) ?? null;
+  }
+
+  getSelectedOpening() {
+    if (!this.selectedOpeningId || !this.floorId) return null;
+    return this.store.getOpeningsForFloor(this.floorId).find((o) => o.id === this.selectedOpeningId) ?? null;
+  }
+
+  onOpeningPointerDown(event, opening) {
+    if (this.suspended) return;
+    event.stopPropagation();
+    this.selectOpening(opening.id);
   }
 
   onKeyDown(event) {
@@ -339,6 +457,16 @@ export class WallsLayer {
         return;
       }
       if (event.key === "Escape") this.select(null);
+      return;
+    }
+    if (this.selectedOpeningId) {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        this.store.removeOpening(this.selectedOpeningId);
+        this.selectedOpeningId = null;
+      } else if (event.key === "Escape") {
+        this.select(null);
+      }
       return;
     }
     if (!this.selectedId) return;

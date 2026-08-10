@@ -5,6 +5,7 @@ import { ComponentsLayer } from "./editor/componentsLayer.js";
 import { LinksLayer } from "./editor/linksLayer.js";
 import { WallsLayer } from "./editor/wallsLayer.js";
 import { WallTool } from "./editor/wallTool.js";
+import { OpeningTool } from "./editor/openingTool.js";
 import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
@@ -31,6 +32,10 @@ const linkTypeSelectEl = document.querySelector("#link-type-select");
 const selectModeButtonEl = document.querySelector("#mode-select");
 const wallModeButtonEl = document.querySelector("#mode-wall");
 const measureModeButtonEl = document.querySelector("#mode-measure");
+// Outil bêta uniquement (voir beta/index.html) : absent du DOM sur l'appli
+// principale, donc potentiellement null ici.
+const openingModeButtonEl = document.querySelector("#mode-opening");
+const openingTypeSelectEl = document.querySelector("#opening-type-select");
 const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
@@ -122,6 +127,7 @@ wallsLayer = new WallsLayer({
 });
 
 const wallTool = new WallTool({ layerEl: wallPreviewLayerEl, stage, store });
+const openingTool = new OpeningTool({ stage, store });
 const measureTool = new MeasureTool({ layerEl: measureLayerEl, stage });
 
 propertiesPanel = new PropertiesPanel({
@@ -163,6 +169,7 @@ async function switchToFloor(floorId) {
   linksLayer.setFloor(floor.id);
   wallsLayer.setFloor(floor.id);
   wallTool.setFloor(floor.id);
+  openingTool.setFloor(floor.id);
   propertiesPanel.refresh();
 }
 
@@ -182,9 +189,10 @@ floorSelectEl.addEventListener("change", () => switchToFloor(floorSelectEl.value
 // --- Modes d'interaction -------------------------------------------------
 // La liaison se propose directement au clic sur un composant (voir
 // onComponentClicked plus haut), plus besoin d'un outil "Tracer" à armer.
-// Trois modes exclusifs : sélection (défaut), murs, mesure. En dehors du mode
-// sélection, composants et murs sont "suspendus" (plus de sélection/glissé
-// sur l'existant) pour ne pas intercepter les clics destinés à l'outil actif.
+// Modes exclusifs : sélection (défaut), murs, ouvertures (bêta uniquement),
+// mesure. En dehors du mode sélection, composants et murs sont "suspendus"
+// (plus de sélection/glissé sur l'existant) pour ne pas intercepter les
+// clics destinés à l'outil actif.
 let currentMode = "select";
 
 function setMode(mode) {
@@ -192,12 +200,14 @@ function setMode(mode) {
   selectModeButtonEl.classList.toggle("toolbar__button--armed", mode === "select");
   wallModeButtonEl.classList.toggle("toolbar__button--armed", mode === "wall");
   measureModeButtonEl.classList.toggle("toolbar__button--armed", mode === "measure");
+  openingModeButtonEl?.classList.toggle("toolbar__button--armed", mode === "opening");
   stage.svgEl.classList.toggle("stage__svg--measuring", mode === "measure");
-  stage.svgEl.classList.toggle("stage__svg--wall-drawing", mode === "wall");
+  stage.svgEl.classList.toggle("stage__svg--wall-drawing", mode === "wall" || mode === "opening");
   componentsLayer.setSuspended(mode !== "select");
   wallsLayer.setSuspended(mode !== "select");
   measureTool.setActive(mode === "measure");
   wallTool.setActive(mode === "wall");
+  openingTool.setActive(mode === "opening");
 }
 
 selectModeButtonEl.addEventListener("click", () => {
@@ -220,6 +230,20 @@ measureModeButtonEl.addEventListener("click", () => {
   linksLayer.stopLinking();
   setMode(currentMode === "measure" ? "select" : "measure");
 });
+
+if (openingModeButtonEl) {
+  openingModeButtonEl.addEventListener("click", () => {
+    palette.setArmed(null);
+    componentsLayer.armPlacement(null);
+    linksLayer.stopLinking();
+    setMode(currentMode === "opening" ? "select" : "opening");
+  });
+}
+
+if (openingTypeSelectEl) {
+  openingTool.setType(openingTypeSelectEl.value);
+  openingTypeSelectEl.addEventListener("change", () => openingTool.setType(openingTypeSelectEl.value));
+}
 
 // Échap : désélectionne, annule une liaison/mur en attente (déjà géré dans
 // ComponentsLayer/LinksLayer/WallTool), et revient au mode sélection.
@@ -286,7 +310,7 @@ menuBar.onAction("#menu-clear", () => {
   const floor = store.getFloorById(floorSelectEl.value);
   if (
     confirm(
-      `Effacer tout le contenu de l'étage "${floor.label}" (composants, liaisons, murs) ? Cette action peut être annulée avec Édition > Annuler.`,
+      `Effacer tout le contenu de l'étage "${floor.label}" (composants, liaisons, murs, ouvertures) ? Cette action peut être annulée avec Édition > Annuler.`,
     )
   ) {
     store.clearFloor(floor.id);
