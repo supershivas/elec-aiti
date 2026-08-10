@@ -172,21 +172,23 @@ Liaison {
 ```
 
 ## Version bêta
-- `beta/index.html` sert la même appli (mêmes `css/`, `js/`, `plans/` partagés, juste des
-  chemins relatifs adaptés — pas de duplication) sous un chemin séparé, avec un badge
-  "Bêta" dans le bandeau. C'est le bac à sable où les prochaines phases du dessin de plans
-  (ouvertures, pièces) se développent et se testent avant de rejoindre la version stable.
+- `beta/index.html` sert la même appli (mêmes `css/`, `js/` partagés, juste des chemins
+  relatifs adaptés) sous un chemin séparé, avec un badge "Bêta" dans le bandeau. C'est le
+  bac à sable où les prochaines phases du dessin de plans (ouvertures, pièces) se
+  développent et se testent avant de rejoindre la version stable.
 - Les fonctionnalités déjà livrées (murs, gestion des étages) restent aussi disponibles
   dans l'appli principale : la bêta n'est pas la seule à les avoir, elle sert juste de
   longueur d'avance pour la suite.
+- `beta/plans/` est une **copie** de `plans/` (les plans RDC/1er étage ne changent
+  quasiment jamais, dupliquer ces deux SVG est plus simple/robuste que faire dépendre leur
+  résolution du module JS qui les charge — approche tentée puis abandonnée après une
+  régression en prod, cf. historique git). `Stage.loadFloor` résout `planPath` normalement,
+  relativement à la page HTML : toute nouvelle page qui réutilise l'appli doit donc avoir
+  son propre `plans/` à côté d'elle.
 - Stockage localStorage isolé par une clé dédiée (`elec-aiti:project:beta` vs
   `elec-aiti:project`, voir `state.js`) : même origine que la version stable (juste un
   sous-dossier), donc sans ça les deux partageraient le même projet.
 - Lien réciproque dans le menu Plan des deux pages.
-- `Stage.loadFloor` résout le chemin des plans SVG importés relativement au module JS
-  (`import.meta.url`), pas à la page HTML, précisément pour que `beta/index.html` n'ait pas
-  besoin de dupliquer `plans/`. Toute nouvelle référence à un chemin relatif au HTML plutôt
-  qu'au JS casserait ce partage — préférer résoudre depuis le module quand c'est possible.
 
 ## Catalogue de composants initial (v1)
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/
