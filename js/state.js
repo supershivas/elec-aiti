@@ -13,7 +13,7 @@ function seedFloors() {
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [] };
+    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
     const parsed = JSON.parse(raw);
     return {
       floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
@@ -21,9 +21,10 @@ function loadFromStorage() {
       liaisons: Array.isArray(parsed.liaisons) ? parsed.liaisons : [],
       walls: Array.isArray(parsed.walls) ? parsed.walls : [],
       openings: Array.isArray(parsed.openings) ? parsed.openings : [],
+      rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
     };
   } catch {
-    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [] };
+    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
   }
 }
 
@@ -66,6 +67,7 @@ export class Store {
         liaisons: this.state.liaisons,
         walls: this.state.walls,
         openings: this.state.openings,
+        rooms: this.state.rooms,
       }),
     );
     if (this.history.length > MAX_HISTORY) this.history.shift();
@@ -84,6 +86,7 @@ export class Store {
     this.state.liaisons = parsed.liaisons;
     this.state.walls = parsed.walls ?? [];
     this.state.openings = parsed.openings ?? [];
+    this.state.rooms = parsed.rooms ?? [];
     this.notify();
     return true;
   }
@@ -128,6 +131,7 @@ export class Store {
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== id);
     this.state.walls = this.state.walls.filter((w) => w.floorId !== id);
     this.state.openings = this.state.openings.filter((o) => o.floorId !== id);
+    this.state.rooms = this.state.rooms.filter((r) => r.floorId !== id);
     this.notify();
     return true;
   }
@@ -306,6 +310,37 @@ export class Store {
     this.notify();
   }
 
+  getRoomsForFloor(floorId) {
+    return this.state.rooms.filter((room) => room.floorId === floorId);
+  }
+
+  getRoomById(id) {
+    return this.state.rooms.find((room) => room.id === id);
+  }
+
+  // points : polygone fermé tracé à la main, pas de détection automatique de
+  // boucle fermée à partir des murs (trop complexe pour la valeur ajoutée en v1).
+  addRoom({ floorId, points, label }) {
+    this.snapshot();
+    const room = { id: createId("r"), floorId, points, label };
+    this.state.rooms.push(room);
+    this.notify();
+    return room;
+  }
+
+  updateRoom(id, changes) {
+    const room = this.state.rooms.find((r) => r.id === id);
+    if (!room) return;
+    Object.assign(room, changes);
+    this.notify();
+  }
+
+  removeRoom(id) {
+    this.snapshot();
+    this.state.rooms = this.state.rooms.filter((r) => r.id !== id);
+    this.notify();
+  }
+
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
   // seul cran d'annulation.
   loadProject(data) {
@@ -316,6 +351,7 @@ export class Store {
       liaisons: Array.isArray(data?.liaisons) ? data.liaisons : [],
       walls: Array.isArray(data?.walls) ? data.walls : [],
       openings: Array.isArray(data?.openings) ? data.openings : [],
+      rooms: Array.isArray(data?.rooms) ? data.rooms : [],
     };
     this.notify();
   }
@@ -334,6 +370,7 @@ export class Store {
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== floorId);
     this.state.walls = this.state.walls.filter((w) => w.floorId !== floorId);
     this.state.openings = this.state.openings.filter((o) => o.floorId !== floorId);
+    this.state.rooms = this.state.rooms.filter((r) => r.floorId !== floorId);
     this.notify();
   }
 }

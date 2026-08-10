@@ -6,6 +6,8 @@ import { LinksLayer } from "./editor/linksLayer.js";
 import { WallsLayer } from "./editor/wallsLayer.js";
 import { WallTool } from "./editor/wallTool.js";
 import { OpeningTool } from "./editor/openingTool.js";
+import { RoomsLayer } from "./editor/roomsLayer.js";
+import { RoomTool } from "./editor/roomTool.js";
 import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
@@ -25,6 +27,8 @@ const componentsLayerEl = document.querySelector("#components-layer");
 const linksLayerEl = document.querySelector("#links-layer");
 const wallsLayerEl = document.querySelector("#walls-layer");
 const wallPreviewLayerEl = document.querySelector("#wall-preview-layer");
+const roomsLayerEl = document.querySelector("#rooms-layer");
+const roomPreviewLayerEl = document.querySelector("#room-preview-layer");
 const measureLayerEl = document.querySelector("#measure-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
@@ -36,6 +40,7 @@ const measureModeButtonEl = document.querySelector("#mode-measure");
 // principale, donc potentiellement null ici.
 const openingModeButtonEl = document.querySelector("#mode-opening");
 const openingTypeSelectEl = document.querySelector("#opening-type-select");
+const roomModeButtonEl = document.querySelector("#mode-room");
 const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
@@ -73,6 +78,7 @@ renderFloorOptions();
 // mutuellement pour que sélectionner l'un désélectionne les autres.
 let linksLayer;
 let wallsLayer;
+let roomsLayer;
 let propertiesPanel;
 
 const componentsLayer = new ComponentsLayer({
@@ -86,6 +92,7 @@ const componentsLayer = new ComponentsLayer({
   onSelect: () => {
     linksLayer.clearSelection();
     wallsLayer.clearSelection();
+    roomsLayer.clearSelection();
     syncCrossHighlight();
     propertiesPanel.refresh();
   },
@@ -110,6 +117,7 @@ linksLayer = new LinksLayer({
   onSelect: () => {
     componentsLayer.clearSelection();
     wallsLayer.clearSelection();
+    roomsLayer.clearSelection();
     syncCrossHighlight();
     propertiesPanel.refresh();
   },
@@ -122,12 +130,26 @@ wallsLayer = new WallsLayer({
   onSelect: () => {
     componentsLayer.clearSelection();
     linksLayer.clearSelection();
+    roomsLayer.clearSelection();
+    propertiesPanel.refresh();
+  },
+});
+
+roomsLayer = new RoomsLayer({
+  layerEl: roomsLayerEl,
+  stage,
+  store,
+  onSelect: () => {
+    componentsLayer.clearSelection();
+    linksLayer.clearSelection();
+    wallsLayer.clearSelection();
     propertiesPanel.refresh();
   },
 });
 
 const wallTool = new WallTool({ layerEl: wallPreviewLayerEl, stage, store });
 const openingTool = new OpeningTool({ stage, store });
+const roomTool = new RoomTool({ layerEl: roomPreviewLayerEl, stage, store });
 const measureTool = new MeasureTool({ layerEl: measureLayerEl, stage });
 
 propertiesPanel = new PropertiesPanel({
@@ -136,6 +158,7 @@ propertiesPanel = new PropertiesPanel({
   componentsLayer,
   linksLayer,
   wallsLayer,
+  roomsLayer,
   // "Aller à l'exemplaire lié" (élément multi-étage) : bascule d'étage puis
   // sélectionne et recentre la vue sur son double.
   onGoToLinkedComponent: async (floorId, componentId) => {
@@ -170,6 +193,8 @@ async function switchToFloor(floorId) {
   wallsLayer.setFloor(floor.id);
   wallTool.setFloor(floor.id);
   openingTool.setFloor(floor.id);
+  roomsLayer.setFloor(floor.id);
+  roomTool.setFloor(floor.id);
   propertiesPanel.refresh();
 }
 
@@ -177,6 +202,7 @@ store.onChange(() => {
   componentsLayer.render();
   linksLayer.render();
   wallsLayer.render();
+  roomsLayer.render();
   refreshUndoState();
   // Différé : si le changement vient d'un champ du panneau lui-même (évènement
   // "change" en cours), reconstruire son DOM tout de suite fait planter le
@@ -201,13 +227,16 @@ function setMode(mode) {
   wallModeButtonEl.classList.toggle("toolbar__button--armed", mode === "wall");
   measureModeButtonEl.classList.toggle("toolbar__button--armed", mode === "measure");
   openingModeButtonEl?.classList.toggle("toolbar__button--armed", mode === "opening");
+  roomModeButtonEl?.classList.toggle("toolbar__button--armed", mode === "room");
   stage.svgEl.classList.toggle("stage__svg--measuring", mode === "measure");
-  stage.svgEl.classList.toggle("stage__svg--wall-drawing", mode === "wall" || mode === "opening");
+  stage.svgEl.classList.toggle("stage__svg--wall-drawing", mode === "wall" || mode === "opening" || mode === "room");
   componentsLayer.setSuspended(mode !== "select");
   wallsLayer.setSuspended(mode !== "select");
+  roomsLayer.setSuspended(mode !== "select");
   measureTool.setActive(mode === "measure");
   wallTool.setActive(mode === "wall");
   openingTool.setActive(mode === "opening");
+  roomTool.setActive(mode === "room");
 }
 
 selectModeButtonEl.addEventListener("click", () => {
@@ -243,6 +272,15 @@ if (openingModeButtonEl) {
 if (openingTypeSelectEl) {
   openingTool.setType(openingTypeSelectEl.value);
   openingTypeSelectEl.addEventListener("change", () => openingTool.setType(openingTypeSelectEl.value));
+}
+
+if (roomModeButtonEl) {
+  roomModeButtonEl.addEventListener("click", () => {
+    palette.setArmed(null);
+    componentsLayer.armPlacement(null);
+    linksLayer.stopLinking();
+    setMode(currentMode === "room" ? "select" : "room");
+  });
 }
 
 // Échap : désélectionne, annule une liaison/mur en attente (déjà géré dans
@@ -310,7 +348,7 @@ menuBar.onAction("#menu-clear", () => {
   const floor = store.getFloorById(floorSelectEl.value);
   if (
     confirm(
-      `Effacer tout le contenu de l'étage "${floor.label}" (composants, liaisons, murs, ouvertures) ? Cette action peut être annulée avec Édition > Annuler.`,
+      `Effacer tout le contenu de l'étage "${floor.label}" (composants, liaisons, murs, ouvertures, pièces) ? Cette action peut être annulée avec Édition > Annuler.`,
     )
   ) {
     store.clearFloor(floor.id);

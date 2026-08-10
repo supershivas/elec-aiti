@@ -115,6 +115,9 @@ function buildExportSvgString(stage, floor, store) {
   const componentColor = root.getPropertyValue("--color-component").trim();
   const bgPanel = root.getPropertyValue("--color-bg-panel").trim();
   const planStroke = root.getPropertyValue("--color-plan-stroke").trim();
+  const roomFill = root.getPropertyValue("--color-room-fill").trim();
+  const borderColor = root.getPropertyValue("--color-border").trim();
+  const textMuted = root.getPropertyValue("--color-text-muted").trim();
   const style = document.createElementNS(SVG_NS, "style");
   style.textContent = `
     .component { color: ${componentColor}; }
@@ -128,22 +131,34 @@ function buildExportSvgString(stage, floor, store) {
     .opening__door-line { stroke: ${planStroke}; stroke-width: 2; fill: none; }
     .opening__door-arc { stroke: ${planStroke}; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .opening__window { fill: ${bgPanel}; stroke: ${planStroke}; stroke-width: 1.5; }
+    .room__shape { fill: ${roomFill}; stroke: ${borderColor}; stroke-width: 1; }
+    .room__label { fill: ${textMuted}; font: 600 14px sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
   `;
   clone.insertBefore(style, clone.firstChild);
 
   // La sélection est un état d'édition, pas une information du schéma exporté
   clone
-    .querySelectorAll(".component--selected, .liaison--selected, .wall--selected, .wall__joint--selected, .opening--selected")
+    .querySelectorAll(
+      ".component--selected, .liaison--selected, .wall--selected, .wall__joint--selected, .opening--selected, .room--selected",
+    )
     .forEach((el) => {
-      el.classList.remove("component--selected", "liaison--selected", "wall--selected", "wall__joint--selected", "opening--selected");
+      el.classList.remove(
+        "component--selected",
+        "liaison--selected",
+        "wall--selected",
+        "wall__joint--selected",
+        "opening--selected",
+        "room--selected",
+      );
     });
-  // Les repères d'édition (outil de mesure, prévisualisation de mur, poignées
-  // d'extrémité/repère de côté/marqueur de coin d'un mur sélectionné, zone de
-  // clic d'une ouverture) ne sont pas des données du schéma
+  // Les repères d'édition (outil de mesure, prévisualisation de mur/pièce,
+  // poignées d'extrémité/de sommet/repère de côté d'un élément sélectionné,
+  // zone de clic d'une ouverture) ne sont pas des données du schéma
   clone.querySelector("#measure-layer")?.remove();
   clone.querySelector("#wall-preview-layer")?.remove();
+  clone.querySelector("#room-preview-layer")?.remove();
   clone
-    .querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit, .wall__vertex-marker, .opening__hit")
+    .querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit, .wall__vertex-marker, .opening__hit, .room__vertex-handle")
     .forEach((el) => el.remove());
 
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]

@@ -36,6 +36,10 @@
   /* Outil de mesure */
   --color-measure: #0891b2;
 
+  /* Remplissage des pièces */
+  --color-room-fill: #eef2f6;
+  --color-room-fill-selected: #dbeafe;
+
   /* Typographie */
   --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-size-sm: 12px;

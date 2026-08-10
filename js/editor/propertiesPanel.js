@@ -14,12 +14,13 @@ function field(labelText, inputEl) {
 // Panneau de propriétés du composant ou de la liaison sélectionné(e).
 // Se contente de relire l'état courant à chaque refresh() : pas d'état interne.
 export class PropertiesPanel {
-  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, onGoToLinkedComponent }) {
+  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, roomsLayer, onGoToLinkedComponent }) {
     this.containerEl = containerEl;
     this.store = store;
     this.componentsLayer = componentsLayer;
     this.linksLayer = linksLayer;
     this.wallsLayer = wallsLayer;
+    this.roomsLayer = roomsLayer;
     this.onGoToLinkedComponent = onGoToLinkedComponent;
   }
 
@@ -28,6 +29,7 @@ export class PropertiesPanel {
     const liaison = component ? null : this.linksLayer.getSelectedLiaison();
     const wall = component || liaison ? null : this.wallsLayer.getSelectedWall();
     const opening = component || liaison || wall ? null : this.wallsLayer.getSelectedOpening();
+    const room = component || liaison || wall || opening ? null : this.roomsLayer?.getSelectedRoom();
     this.containerEl.replaceChildren();
 
     // Titre du panneau lui-même (h2, cohérent avec le h1 du bandeau du haut) :
@@ -45,10 +47,12 @@ export class PropertiesPanel {
       this.renderWallProps(wall);
     } else if (opening) {
       this.renderOpeningProps(opening);
+    } else if (room) {
+      this.renderRoomProps(room);
     } else {
       const empty = document.createElement("p");
       empty.className = "properties__empty";
-      empty.textContent = "Sélectionnez un composant, une liaison, un mur ou une ouverture pour voir ses propriétés.";
+      empty.textContent = "Sélectionnez un élément du plan pour voir ses propriétés.";
       this.containerEl.appendChild(empty);
     }
   }
@@ -440,6 +444,34 @@ export class PropertiesPanel {
     this.containerEl.appendChild(divider);
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeOpening(opening.id)));
+  }
+
+  renderRoomProps(room) {
+    const title = document.createElement("h3");
+    title.className = "properties__title";
+    title.textContent = room.label || "Pièce";
+    this.containerEl.appendChild(title);
+
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.value = room.label || "";
+    labelInput.placeholder = "Ex: Cuisine, Salon...";
+    labelInput.addEventListener("change", () => {
+      this.store.snapshot();
+      this.store.updateRoom(room.id, { label: labelInput.value.trim() || undefined });
+    });
+    this.containerEl.appendChild(field("Nom de la pièce", labelInput));
+
+    const info = document.createElement("p");
+    info.className = "properties__empty";
+    info.textContent = `${room.points.length} sommets.`;
+    this.containerEl.appendChild(info);
+
+    const divider = document.createElement("hr");
+    divider.className = "properties__divider";
+    this.containerEl.appendChild(divider);
+
+    this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeRoom(room.id)));
   }
 
   buildDeleteButton(onDelete) {

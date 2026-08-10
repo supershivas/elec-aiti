@@ -700,6 +700,52 @@
   stroke: var(--color-accent);
 }
 
+.room {
+  cursor: pointer;
+}
+
+.room__shape {
+  fill: var(--color-room-fill);
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.room--selected .room__shape {
+  fill: var(--color-room-fill-selected);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.room__label {
+  fill: var(--color-text-muted);
+  font: 600 14px sans-serif;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.room__vertex-handle {
+  fill: var(--color-accent);
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: move;
+}
+
+.room-preview {
+  pointer-events: none;
+}
+
+.room-preview__line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.room-preview__point {
+  fill: var(--color-accent);
+}
+
 .stage__error {
   position: absolute;
   inset: 0;

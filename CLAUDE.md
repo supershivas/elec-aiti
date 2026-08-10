@@ -125,9 +125,20 @@ Liaison {
   `main.js` s'y adapte via des vérifications de nullité) : le rendu des ouvertures reste
   disponible partout (import d'un projet créé en bêta), mais la pose est bêta seulement
   tant que la fonctionnalité n'a pas rejoint la version stable.
-- **Pièces (à faire)** : `RoomArea { id, floorId, points: [{x,y}, ...], label? }`, polygone
-  fermé tracé à la main (pas de détection automatique de boucle fermée à partir des murs :
-  trop complexe pour la valeur ajoutée en v1), avec remplissage + label optionnel.
+- **Pièces (fait, bêta uniquement)** : `RoomArea { id, floorId, points: [{x,y}, ...], label? }`
+  dans `state.js`, scopé par `floorId` (nommé `rooms` côté Store). Polygone fermé tracé à
+  la main (pas de détection automatique de boucle fermée à partir des murs : trop complexe
+  pour la valeur ajoutée en v1), avec remplissage + label optionnel centré (centroïde des
+  sommets). Outil Pièces (`js/editor/roomTool.js`) : clic-clic pose les sommets (aimantés
+  aux extrémités des murs existants), reclic près du premier sommet (ou Entrée) referme le
+  polygone et pose la pièce, Échap annule le tracé en cours — rien n'est enregistré tant
+  que le polygone n'est pas fermé. Rendu/sélection/édition dans `js/editor/roomsLayer.js`
+  (calque `#rooms-layer`, juste après le plan de fond, avant les murs — ceux-ci restent
+  peints par-dessus le remplissage à leurs frontières et gardent la priorité de clic) :
+  glissé de chaque sommet individuellement ou de la pièce entière, nom éditable dans le
+  panneau de propriétés. Même principe bêta uniquement que les ouvertures : bouton de mode
+  seulement dans `beta/index.html`, `main.js` s'y adapte via des vérifications de nullité,
+  le rendu reste partagé.
 
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
