@@ -167,7 +167,26 @@ Liaison {
   plans/                    # les SVG de plans d'étage existants, déplacés ici
     aiti-elec_RDC.svg
     aiti-elec_1er étage.svg
+  beta/
+    index.html               # même appli, servie en /beta/ (voir "Version bêta" ci-dessous)
 ```
+
+## Version bêta
+- `beta/index.html` sert la même appli (mêmes `css/`, `js/`, `plans/` partagés, juste des
+  chemins relatifs adaptés — pas de duplication) sous un chemin séparé, avec un badge
+  "Bêta" dans le bandeau. C'est le bac à sable où les prochaines phases du dessin de plans
+  (ouvertures, pièces) se développent et se testent avant de rejoindre la version stable.
+- Les fonctionnalités déjà livrées (murs, gestion des étages) restent aussi disponibles
+  dans l'appli principale : la bêta n'est pas la seule à les avoir, elle sert juste de
+  longueur d'avance pour la suite.
+- Stockage localStorage isolé par une clé dédiée (`elec-aiti:project:beta` vs
+  `elec-aiti:project`, voir `state.js`) : même origine que la version stable (juste un
+  sous-dossier), donc sans ça les deux partageraient le même projet.
+- Lien réciproque dans le menu Plan des deux pages.
+- `Stage.loadFloor` résout le chemin des plans SVG importés relativement au module JS
+  (`import.meta.url`), pas à la page HTML, précisément pour que `beta/index.html` n'ait pas
+  besoin de dupliquer `plans/`. Toute nouvelle référence à un chemin relatif au HTML plutôt
+  qu'au JS casserait ce partage — préférer résoudre depuis le module quand c'est possible.
 
 ## Catalogue de composants initial (v1)
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/
