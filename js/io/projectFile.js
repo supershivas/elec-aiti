@@ -37,9 +37,9 @@ export async function exportProjectFile(store) {
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return;
+      return true;
     } catch (error) {
-      if (error.name === "AbortError") return; // annulé par l'utilisateur
+      if (error.name === "AbortError") return false; // annulé par l'utilisateur
       // Sinon (API indisponible pour ce contexte, erreur d'écriture...) on
       // retombe sur le téléchargement classique ci-dessous.
     }
@@ -49,8 +49,9 @@ export async function exportProjectFile(store) {
   // choix natif de l'emplacement, mais on propose au moins de personnaliser
   // le nom plutôt que d'enregistrer en silence sous le nom par défaut.
   const filename = await promptSaveFilename({ defaultName: suggestedName, extension: ".aiti" });
-  if (!filename) return; // annulé
+  if (!filename) return false; // annulé
   downloadBlob(blob, filename);
+  return true;
 }
 
 export async function importProjectFile(store, file) {

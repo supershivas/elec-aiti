@@ -33,6 +33,7 @@
           <button type="button" class="menubar__trigger" id="menu-edit-trigger" aria-haspopup="true" aria-expanded="false">Édition</button>
           <div class="menubar__dropdown" id="menu-edit-dropdown" hidden role="menu">
             <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler</button>
+            <button type="button" class="menubar__action" id="menu-redo" role="menuitem">Rétablir</button>
             <hr class="menubar__separator" />
             <button type="button" class="menubar__action menubar__action--danger" id="menu-clear" role="menuitem">Effacer tout le plan</button>
           </div>
@@ -43,6 +44,7 @@
             <button type="button" class="menubar__action" id="menu-elements-list" role="menuitem">Liste des éléments</button>
             <hr class="menubar__separator" />
             <button type="button" class="menubar__action" id="menu-new-floor" role="menuitem">Nouvel étage</button>
+            <button type="button" class="menubar__action" id="menu-duplicate-floor" role="menuitem">Dupliquer cet étage</button>
             <button type="button" class="menubar__action" id="menu-rename-floor" role="menuitem">Renommer cet étage</button>
             <button type="button" class="menubar__action menubar__action--danger" id="menu-delete-floor" role="menuitem">Supprimer cet étage</button>
             <hr class="menubar__separator" />
@@ -167,6 +169,7 @@
       <aside id="properties-panel" class="properties" aria-label="Propriétés"></aside>
     </div>
   </div>
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

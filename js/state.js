@@ -46,7 +46,9 @@ export class Store {
   constructor() {
     this.state = loadFromStorage();
     this.listeners = new Set();
+    this.actionListeners = new Set();
     this.history = [];
+    this.redoStack = [];
   }
 
   onChange(listener) {
@@ -57,6 +59,23 @@ export class Store {
   notify() {
     saveToStorage(this.state);
     for (const listener of this.listeners) listener();
+  }
+
+  // Flux d'actions séparé de onChange (qui ne dit pas CE QUI a changé) :
+  // permet un point d'écoute unique (les toasts, dans main.js) plutôt que de
+  // disperser des appels dans chaque endroit qui peut déclencher une
+  // suppression/duplication (raccourci clavier, bouton du panneau de
+  // propriétés, menu...). Volontairement réservé aux actions structurelles/
+  // ponctuelles (suppression, duplication, annuler/refaire, cycle de vie du
+  // projet) : pas la pose/l'édition continue (composant, mur...), qui a déjà
+  // un retour visuel immédiat et serait beaucoup trop bavarde en toasts.
+  onAction(listener) {
+    this.actionListeners.add(listener);
+    return () => this.actionListeners.delete(listener);
+  }
+
+  emitAction(action) {
+    for (const listener of this.actionListeners) listener(action);
   }
 
   snapshot() {
@@ -71,23 +90,57 @@ export class Store {
       }),
     );
     if (this.history.length > MAX_HISTORY) this.history.shift();
+    // Toute nouvelle action invalide le futur "rétablir" : on ne peut pas
+    // rétablir une branche qu'on vient d'écraser par une action différente.
+    this.redoStack = [];
   }
 
   canUndo() {
     return this.history.length > 0;
   }
 
-  undo() {
-    const previous = this.history.pop();
-    if (previous === undefined) return false;
-    const parsed = JSON.parse(previous);
+  canRedo() {
+    return this.redoStack.length > 0;
+  }
+
+  currentSnapshotJSON() {
+    return JSON.stringify({
+      floors: this.state.floors,
+      components: this.state.components,
+      liaisons: this.state.liaisons,
+      walls: this.state.walls,
+      openings: this.state.openings,
+      rooms: this.state.rooms,
+    });
+  }
+
+  applySnapshotJSON(json) {
+    const parsed = JSON.parse(json);
     this.state.floors = parsed.floors;
     this.state.components = parsed.components;
     this.state.liaisons = parsed.liaisons;
     this.state.walls = parsed.walls ?? [];
     this.state.openings = parsed.openings ?? [];
     this.state.rooms = parsed.rooms ?? [];
+  }
+
+  undo() {
+    const previous = this.history.pop();
+    if (previous === undefined) return false;
+    this.redoStack.push(this.currentSnapshotJSON());
+    this.applySnapshotJSON(previous);
     this.notify();
+    this.emitAction({ type: "undo" });
+    return true;
+  }
+
+  redo() {
+    const next = this.redoStack.pop();
+    if (next === undefined) return false;
+    this.history.push(this.currentSnapshotJSON());
+    this.applySnapshotJSON(next);
+    this.notify();
+    this.emitAction({ type: "redo" });
     return true;
   }
 
@@ -104,6 +157,7 @@ export class Store {
     const floor = { id: createId("f"), label, kind: "drawn" };
     this.state.floors.push(floor);
     this.notify();
+    this.emitAction({ type: "floor:added", label });
     return floor;
   }
 
@@ -113,12 +167,73 @@ export class Store {
     this.snapshot();
     floor.label = label;
     this.notify();
+    this.emitAction({ type: "floor:renamed", label });
+  }
+
+  // Copie un étage et tout son contenu (composants, liaisons, murs,
+  // ouvertures, pièces) sous un nouvel id, pour repartir d'un étage existant
+  // plutôt que d'un étage vierge. Les liens multi-étage ne sont pas repris
+  // sur la copie (linkedComponentId visait un équipement physique précis,
+  // pas pertinent pour un doublon) — même logique que duplicateComponent.
+  duplicateFloor(id) {
+    const floor = this.state.floors.find((f) => f.id === id);
+    if (!floor) return null;
+    this.snapshot();
+
+    const newFloor = { ...floor, id: createId("f"), label: `${floor.label} (copie)` };
+    this.state.floors.push(newFloor);
+
+    const componentIdMap = new Map();
+    const newComponents = this.state.components
+      .filter((c) => c.floorId === id)
+      .map((c) => {
+        const newId = createId("c");
+        componentIdMap.set(c.id, newId);
+        return { ...c, id: newId, floorId: newFloor.id, linkedComponentId: undefined };
+      });
+    this.state.components.push(...newComponents);
+
+    const newLiaisons = this.state.liaisons
+      .filter((l) => l.floorId === id)
+      .map((l) => ({
+        ...l,
+        id: createId("l"),
+        floorId: newFloor.id,
+        fromComponentId: componentIdMap.get(l.fromComponentId),
+        toComponentId: componentIdMap.get(l.toComponentId),
+      }));
+    this.state.liaisons.push(...newLiaisons);
+
+    const wallIdMap = new Map();
+    const newWalls = this.state.walls
+      .filter((w) => w.floorId === id)
+      .map((w) => {
+        const newId = createId("w");
+        wallIdMap.set(w.id, newId);
+        return { ...w, id: newId, floorId: newFloor.id };
+      });
+    this.state.walls.push(...newWalls);
+
+    const newOpenings = this.state.openings
+      .filter((o) => o.floorId === id)
+      .map((o) => ({ ...o, id: createId("o"), floorId: newFloor.id, wallId: wallIdMap.get(o.wallId) }));
+    this.state.openings.push(...newOpenings);
+
+    const newRooms = this.state.rooms
+      .filter((r) => r.floorId === id)
+      .map((r) => ({ ...r, id: createId("r"), floorId: newFloor.id, points: r.points.map((p) => ({ ...p })) }));
+    this.state.rooms.push(...newRooms);
+
+    this.notify();
+    this.emitAction({ type: "floor:duplicated", label: newFloor.label });
+    return newFloor;
   }
 
   // On garde toujours au moins un étage : un plan sans aucun étage n'a pas de
   // sens dans cette appli (pas d'écran "projet vide").
   removeFloor(id) {
     if (this.state.floors.length <= 1) return false;
+    const floor = this.state.floors.find((f) => f.id === id);
     this.snapshot();
     const removedComponentIds = new Set(this.state.components.filter((c) => c.floorId === id).map((c) => c.id));
     this.state.floors = this.state.floors.filter((f) => f.id !== id);
@@ -133,6 +248,7 @@ export class Store {
     this.state.openings = this.state.openings.filter((o) => o.floorId !== id);
     this.state.rooms = this.state.rooms.filter((r) => r.floorId !== id);
     this.notify();
+    this.emitAction({ type: "floor:removed", label: floor?.label });
     return true;
   }
 
@@ -170,6 +286,7 @@ export class Store {
     const clone = { ...component, id: createId("c"), x: component.x + offset, y: component.y + offset, linkedComponentId: undefined };
     this.state.components.push(clone);
     this.notify();
+    this.emitAction({ type: "component:duplicated" });
     return clone;
   }
 
@@ -186,6 +303,7 @@ export class Store {
     // Une liaison qui pointe vers un composant supprimé n'a plus de sens
     this.state.liaisons = this.state.liaisons.filter((l) => l.fromComponentId !== id && l.toComponentId !== id);
     this.notify();
+    this.emitAction({ type: "component:removed" });
   }
 
   // Un même équipement physique peut être présent sur deux étages (ex: point
@@ -200,6 +318,7 @@ export class Store {
     component.linkedComponentId = clone.id;
     this.state.components.push(clone);
     this.notify();
+    this.emitAction({ type: "component:linked" });
     return clone;
   }
 
@@ -211,6 +330,7 @@ export class Store {
     component.linkedComponentId = undefined;
     if (linked) linked.linkedComponentId = undefined;
     this.notify();
+    this.emitAction({ type: "component:unlinked" });
   }
 
   getLiaisonsForFloor(floorId) {
@@ -237,6 +357,7 @@ export class Store {
     this.snapshot();
     this.state.liaisons = this.state.liaisons.filter((l) => l.id !== id);
     this.notify();
+    this.emitAction({ type: "liaison:removed" });
   }
 
   getWallsForFloor(floorId) {
@@ -272,6 +393,7 @@ export class Store {
     // Une ouverture qui découpait ce mur n'a plus de support
     this.state.openings = this.state.openings.filter((o) => o.wallId !== id);
     this.notify();
+    this.emitAction({ type: "wall:removed" });
   }
 
   getOpeningsForFloor(floorId) {
@@ -308,6 +430,7 @@ export class Store {
     this.snapshot();
     this.state.openings = this.state.openings.filter((o) => o.id !== id);
     this.notify();
+    this.emitAction({ type: "opening:removed" });
   }
 
   getRoomsForFloor(floorId) {
@@ -339,6 +462,7 @@ export class Store {
     this.snapshot();
     this.state.rooms = this.state.rooms.filter((r) => r.id !== id);
     this.notify();
+    this.emitAction({ type: "room:removed" });
   }
 
   // Nouveau projet : repart des étages fournis par défaut, vide tout le reste.
@@ -348,6 +472,7 @@ export class Store {
     this.snapshot();
     this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
     this.notify();
+    this.emitAction({ type: "project:new" });
   }
 
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
@@ -363,6 +488,7 @@ export class Store {
       rooms: Array.isArray(data?.rooms) ? data.rooms : [],
     };
     this.notify();
+    this.emitAction({ type: "project:opened" });
   }
 
   clearFloor(floorId) {
@@ -381,5 +507,6 @@ export class Store {
     this.state.openings = this.state.openings.filter((o) => o.floorId !== floorId);
     this.state.rooms = this.state.rooms.filter((r) => r.floorId !== floorId);
     this.notify();
+    this.emitAction({ type: "floor:cleared" });
   }
 }

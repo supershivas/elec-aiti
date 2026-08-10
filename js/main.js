@@ -18,6 +18,7 @@ import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
 import { promptFloorName } from "./editor/floorDialog.js";
+import { showToast } from "./editor/toast.js";
 
 const svgEl = document.querySelector("#stage-svg");
 const errorEl = document.querySelector("#stage-error");
@@ -32,6 +33,7 @@ const roomPreviewLayerEl = document.querySelector("#room-preview-layer");
 const measureLayerEl = document.querySelector("#measure-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
+const redoMenuButton = document.querySelector("#menu-redo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const selectModeButtonEl = document.querySelector("#mode-select");
 const wallModeButtonEl = document.querySelector("#mode-wall");
@@ -179,7 +181,58 @@ function syncCrossHighlight() {
 
 function refreshUndoState() {
   undoMenuButton.disabled = !store.canUndo();
+  if (redoMenuButton) redoMenuButton.disabled = !store.canRedo();
 }
+
+// Libellés des toasts déclenchés par le flux d'actions centralisé du Store
+// (voir Store.onAction) : un seul point pour ne rater aucune action (menu,
+// raccourci clavier, panneau de propriétés...).
+function describeAction(action) {
+  switch (action.type) {
+    case "floor:added":
+      return { message: `Étage "${action.label}" créé` };
+    case "floor:renamed":
+      return { message: `Étage renommé en "${action.label}"` };
+    case "floor:duplicated":
+      return { message: `Étage dupliqué : "${action.label}"` };
+    case "floor:removed":
+      return { message: `Étage "${action.label}" supprimé`, type: "danger" };
+    case "floor:cleared":
+      return { message: "Contenu de l'étage effacé", type: "danger" };
+    case "component:duplicated":
+      return { message: "Composant dupliqué" };
+    case "component:removed":
+      return { message: "Composant supprimé", type: "danger" };
+    case "component:linked":
+      return { message: "Composant ajouté sur l'autre étage" };
+    case "component:unlinked":
+      return { message: "Lien entre étages retiré" };
+    case "liaison:removed":
+      return { message: "Liaison supprimée", type: "danger" };
+    case "wall:removed":
+      return { message: "Mur supprimé", type: "danger" };
+    case "opening:removed":
+      return { message: "Ouverture supprimée", type: "danger" };
+    case "room:removed":
+      return { message: "Pièce supprimée", type: "danger" };
+    case "project:new":
+      return { message: "Nouveau projet créé" };
+    case "project:opened":
+      return { message: "Projet ouvert" };
+    case "undo":
+      return { message: "Action annulée" };
+    case "redo":
+      return { message: "Action rétablie" };
+    default:
+      return null;
+  }
+}
+
+store.onAction((action) => {
+  const described = describeAction(action);
+  if (!described) return;
+  showToast(described.message, { type: described.type });
+});
 
 // Point d'entrée unique pour changer d'étage affiché (sélecteur, "aller à
 // l'exemplaire lié", création/suppression d'étage) : garde le stage, les
@@ -303,14 +356,32 @@ function undoAndSyncFloors() {
   }
 }
 
-// Ctrl/Cmd+Z : annuler. Si le focus est dans un champ de texte, on laisse le
-// navigateur gérer son propre undo natif plutôt que d'annuler une action du plan.
+function redoAndSyncFloors() {
+  if (!store.redo()) return;
+  renderFloorOptions();
+  if (!store.getFloorById(componentsLayer.floorId)) {
+    switchToFloor(store.getFloors()[0].id);
+  }
+}
+
+// Ctrl/Cmd+Z : annuler, Ctrl/Cmd+Shift+Z ou Ctrl/Cmd+Y : rétablir. Si le focus
+// est dans un champ de texte, on laisse le navigateur gérer son propre undo
+// natif plutôt que d'annuler une action du plan.
 window.addEventListener("keydown", (event) => {
   if (isEditingText(event.target)) return;
-  const isUndoShortcut = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
-  if (!isUndoShortcut) return;
-  event.preventDefault();
-  undoAndSyncFloors();
+  const modifier = event.ctrlKey || event.metaKey;
+  if (!modifier) return;
+  const key = event.key.toLowerCase();
+  if (key === "z" && event.shiftKey) {
+    event.preventDefault();
+    redoAndSyncFloors();
+  } else if (key === "z") {
+    event.preventDefault();
+    undoAndSyncFloors();
+  } else if (key === "y") {
+    event.preventDefault();
+    redoAndSyncFloors();
+  }
 });
 
 const menuBar = new MenuBar([
@@ -331,7 +402,10 @@ menuBar.onAction("#menu-new-project", async () => {
   renderFloorOptions();
   await switchToFloor(store.getFloors()[0].id);
 });
-menuBar.onAction("#menu-save-project", () => exportProjectFile(store));
+menuBar.onAction("#menu-save-project", async () => {
+  const saved = await exportProjectFile(store);
+  if (saved) showToast("Projet enregistré");
+});
 menuBar.onAction("#menu-open-project", () => importFileInputEl.click());
 importFileInputEl.addEventListener("change", async () => {
   const file = importFileInputEl.files[0];
@@ -357,6 +431,7 @@ menuBar.onAction("#menu-export-png", () => exportPng(stage, componentsLayer, lin
 menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, componentsLayer, linksLayer, wallsLayer, store));
 menuBar.onAction("#menu-print", () => exportPdf(stage, componentsLayer, linksLayer, wallsLayer, store));
 menuBar.onAction("#menu-undo", () => undoAndSyncFloors());
+menuBar.onAction("#menu-redo", () => redoAndSyncFloors());
 menuBar.onAction("#menu-clear", () => {
   const floor = store.getFloorById(floorSelectEl.value);
   if (
@@ -388,6 +463,15 @@ menuBar.onAction("#menu-new-floor", async () => {
   const floor = store.addFloor(name);
   renderFloorOptions();
   await switchToFloor(floor.id);
+});
+
+menuBar.onAction("#menu-duplicate-floor", async () => {
+  const floor = store.getFloorById(floorSelectEl.value);
+  if (!floor) return;
+  const newFloor = store.duplicateFloor(floor.id);
+  if (!newFloor) return;
+  renderFloorOptions();
+  await switchToFloor(newFloor.id);
 });
 
 menuBar.onAction("#menu-rename-floor", async () => {
