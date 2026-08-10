@@ -124,19 +124,20 @@ function buildExportSvgString(stage, floor, store) {
     .component__door-line { stroke: currentColor; stroke-width: 2; fill: none; }
     .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
-    .wall__shape { fill: ${planStroke}; stroke: none; }
+    .wall__shape, .wall__joint { fill: ${planStroke}; stroke: none; }
   `;
   clone.insertBefore(style, clone.firstChild);
 
   // La sélection est un état d'édition, pas une information du schéma exporté
-  clone.querySelectorAll(".component--selected, .liaison--selected, .wall--selected").forEach((el) => {
-    el.classList.remove("component--selected", "liaison--selected", "wall--selected");
+  clone.querySelectorAll(".component--selected, .liaison--selected, .wall--selected, .wall__joint--selected").forEach((el) => {
+    el.classList.remove("component--selected", "liaison--selected", "wall--selected", "wall__joint--selected");
   });
   // Les repères d'édition (outil de mesure, prévisualisation de mur, poignées
-  // d'extrémité/repère de côté d'un mur sélectionné) ne sont pas des données du schéma
+  // d'extrémité/repère de côté/marqueur de coin d'un mur sélectionné) ne sont
+  // pas des données du schéma
   clone.querySelector("#measure-layer")?.remove();
   clone.querySelector("#wall-preview-layer")?.remove();
-  clone.querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit").forEach((el) => el.remove());
+  clone.querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit, .wall__vertex-marker").forEach((el) => el.remove());
 
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
     .map((type) => getCatalogEntry(type))

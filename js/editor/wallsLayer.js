@@ -1,10 +1,13 @@
 import { isEditingText } from "./domUtils.js";
 import { snapToWallEndpoints } from "./wallSnapping.js";
+import { findConnectedEndpoints, groupWallVertices, pointsCoincide } from "./wallJoints.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 const ENDPOINT_HANDLE_SIZE = 10;
 const HIT_PADDING = 6; // cm de marge de chaque côté du mur pour faciliter le clic
 const CLICK_THRESHOLD_PX = 6;
+const ARROW_STEP = 1; // cm par pression de flèche
+const ARROW_STEP_SHIFT = 10; // cm avec Maj enfoncée
 
 // Un mur est un segment de référence (x1,y1)-(x2,y2) avec une épaisseur
 // indépendante de chaque côté (thicknessLeft/thicknessRight) : le segment
@@ -33,9 +36,20 @@ function wallPolygonPoints(wall) {
   return [p1a, p2a, p2b, p1b];
 }
 
-// Gère l'affichage, la sélection et l'édition (extrémités, glissé entier) des
-// murs dessinés dans l'appli. Suspendu pendant le tracé (WallTool actif) ou
-// la mesure, pour ne pas intercepter les clics destinés à ces outils.
+function endpointOf(wall, key) {
+  return key === "1" ? { x: wall.x1, y: wall.y1 } : { x: wall.x2, y: wall.y2 };
+}
+
+// Gère l'affichage, la sélection et l'édition (extrémités/coins, glissé
+// entier) des murs dessinés dans l'appli. Suspendu pendant le tracé (WallTool
+// actif) ou la mesure, pour ne pas intercepter les clics destinés à ces outils.
+//
+// Deux murs dont une extrémité coïncide (à VERTEX_EPSILON près, voir
+// wallJoints.js) sont traités comme reliés par un même "coin", sans que le
+// modèle de données n'ait de notion de sommet partagé : c'est la coïncidence
+// des coordonnées qui fait foi. Un patch circulaire (renderJoint) comble le
+// vide entre leurs rectangles, et déplacer ce coin (glissé ou flèches) déplace
+// ensemble toutes les extrémités qui y coïncident.
 export class WallsLayer {
   constructor({ layerEl, stage, store, onSelect }) {
     this.layerEl = layerEl;
@@ -44,9 +58,10 @@ export class WallsLayer {
     this.onSelect = onSelect;
     this.floorId = null;
     this.selectedId = null;
+    this.selectedVertex = null; // { x, y } | null, exclusif avec selectedId
     this.suspended = false;
     this.pendingDrag = null;
-    this.endpointDrag = null;
+    this.vertexDrag = null;
 
     this.stage.svgEl.addEventListener("pointermove", (event) => this.onStagePointerMove(event));
     this.stage.svgEl.addEventListener("pointerup", (event) => this.onStagePointerUp(event));
@@ -56,6 +71,7 @@ export class WallsLayer {
   setFloor(floorId) {
     this.floorId = floorId;
     this.selectedId = null;
+    this.selectedVertex = null;
     this.render();
   }
 
@@ -66,9 +82,66 @@ export class WallsLayer {
   render() {
     this.layerEl.replaceChildren();
     if (!this.floorId) return;
-    for (const wall of this.store.getWallsForFloor(this.floorId)) {
+    const walls = this.store.getWallsForFloor(this.floorId);
+    for (const wall of walls) {
       this.layerEl.appendChild(this.renderWall(wall));
     }
+    for (const vertex of groupWallVertices(walls)) {
+      this.layerEl.appendChild(this.renderJoint(vertex, walls));
+    }
+    // Les poignées sont ajoutées en dernier, hors des groupes de mur : sinon
+    // la zone de clic (large et invisible) d'un mur voisin plus tard dans le
+    // DOM passerait au-dessus et intercepterait les clics qui leur sont destinés.
+    for (const wall of walls) {
+      if (wall.id !== this.selectedId && !this.wallTouchesSelectedVertex(wall)) continue;
+      for (const key of ["1", "2"]) {
+        this.layerEl.appendChild(this.renderEndpointHandle(wall, walls, key));
+      }
+    }
+    if (this.selectedVertex) {
+      this.layerEl.appendChild(this.renderVertexMarker(this.selectedVertex));
+    }
+  }
+
+  renderEndpointHandle(wall, walls, key) {
+    const point = endpointOf(wall, key);
+    const handle = document.createElementNS(SVG_NS, "rect");
+    handle.classList.add("wall__endpoint-handle");
+    handle.setAttribute("x", point.x - ENDPOINT_HANDLE_SIZE / 2);
+    handle.setAttribute("y", point.y - ENDPOINT_HANDLE_SIZE / 2);
+    handle.setAttribute("width", ENDPOINT_HANDLE_SIZE);
+    handle.setAttribute("height", ENDPOINT_HANDLE_SIZE);
+    handle.addEventListener("pointerdown", (event) => this.onEndpointPointerDown(event, walls, point));
+    return handle;
+  }
+
+  // Comble le vide entre les rectangles de deux (ou plus) murs qui se
+  // rejoignent : un disque plein, de la même couleur que les murs, dont le
+  // rayon couvre l'épaisseur la plus large des murs connectés à ce coin.
+  renderJoint(vertex, walls) {
+    const radius = Math.max(
+      ...vertex.connections.map(({ wallId }) => {
+        const wall = walls.find((w) => w.id === wallId);
+        return Math.max(wall.thicknessLeft, wall.thicknessRight);
+      }),
+    );
+    const anySelected = vertex.connections.some(({ wallId }) => wallId === this.selectedId);
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.classList.add("wall__joint");
+    if (anySelected) circle.classList.add("wall__joint--selected");
+    circle.setAttribute("cx", vertex.x);
+    circle.setAttribute("cy", vertex.y);
+    circle.setAttribute("r", radius);
+    return circle;
+  }
+
+  renderVertexMarker(point) {
+    const marker = document.createElementNS(SVG_NS, "circle");
+    marker.classList.add("wall__vertex-marker");
+    marker.setAttribute("cx", point.x);
+    marker.setAttribute("cy", point.y);
+    marker.setAttribute("r", ENDPOINT_HANDLE_SIZE / 2 + 2);
+    return marker;
   }
 
   renderWall(wall) {
@@ -106,20 +179,6 @@ export class WallsLayer {
       tick.setAttribute("x2", midX + nx * (wall.thicknessLeft + 15));
       tick.setAttribute("y2", midY + ny * (wall.thicknessLeft + 15));
       group.appendChild(tick);
-
-      for (const [key, point] of [
-        ["1", { x: wall.x1, y: wall.y1 }],
-        ["2", { x: wall.x2, y: wall.y2 }],
-      ]) {
-        const handle = document.createElementNS(SVG_NS, "rect");
-        handle.classList.add("wall__endpoint-handle");
-        handle.setAttribute("x", point.x - ENDPOINT_HANDLE_SIZE / 2);
-        handle.setAttribute("y", point.y - ENDPOINT_HANDLE_SIZE / 2);
-        handle.setAttribute("width", ENDPOINT_HANDLE_SIZE);
-        handle.setAttribute("height", ENDPOINT_HANDLE_SIZE);
-        handle.addEventListener("pointerdown", (event) => this.onEndpointPointerDown(event, wall, key));
-        group.appendChild(handle);
-      }
     }
 
     const title = document.createElementNS(SVG_NS, "title");
@@ -128,6 +187,11 @@ export class WallsLayer {
 
     group.addEventListener("pointerdown", (event) => this.onWallPointerDown(event, wall));
     return group;
+  }
+
+  wallTouchesSelectedVertex(wall) {
+    if (!this.selectedVertex) return false;
+    return pointsCoincide(endpointOf(wall, "1"), this.selectedVertex) || pointsCoincide(endpointOf(wall, "2"), this.selectedVertex);
   }
 
   onWallPointerDown(event, wall) {
@@ -144,21 +208,42 @@ export class WallsLayer {
     this.layerEl.setPointerCapture(event.pointerId);
   }
 
-  onEndpointPointerDown(event, wall, endpointKey) {
+  // Clic sans glissé sur une poignée -> sélectionne le coin (voir onKeyDown
+  // pour les flèches, onStagePointerMove pour le glissé). Toutes les
+  // extrémités de murs coïncidant avec ce point bougent ensemble.
+  onEndpointPointerDown(event, walls, point) {
     if (this.suspended) return;
     event.stopPropagation();
-    this.store.snapshot();
-    this.endpointDrag = { pointerId: event.pointerId, wallId: wall.id, endpointKey };
+    this.vertexDrag = {
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalPoint: point,
+      connections: findConnectedEndpoints(walls, point),
+      dragging: false,
+    };
     this.layerEl.setPointerCapture(event.pointerId);
   }
 
+  moveVertex(connections, from, to) {
+    for (const { wallId, key } of connections) {
+      this.store.updateWall(wallId, key === "1" ? { x1: to.x, y1: to.y } : { x2: to.x, y2: to.y });
+    }
+  }
+
   onStagePointerMove(event) {
-    if (this.endpointDrag && this.endpointDrag.pointerId === event.pointerId) {
-      const point = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
-      const others = this.store.getWallsForFloor(this.floorId).filter((w) => w.id !== this.endpointDrag.wallId);
-      const snapped = snapToWallEndpoints(point, others);
-      const changes = this.endpointDrag.endpointKey === "1" ? { x1: snapped.x, y1: snapped.y } : { x2: snapped.x, y2: snapped.y };
-      this.store.updateWall(this.endpointDrag.wallId, changes);
+    if (this.vertexDrag && this.vertexDrag.pointerId === event.pointerId) {
+      const drag = this.vertexDrag;
+      if (!drag.dragging) {
+        const movedPx = Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y);
+        if (movedPx < CLICK_THRESHOLD_PX) return;
+        drag.dragging = true;
+        this.store.snapshot();
+      }
+      const raw = this.stage.clientToViewBoxPoint(event.clientX, event.clientY);
+      const movedWallIds = new Set(drag.connections.map((c) => c.wallId));
+      const others = this.store.getWallsForFloor(this.floorId).filter((w) => !movedWallIds.has(w.id));
+      const snapped = snapToWallEndpoints(raw, others);
+      this.moveVertex(drag.connections, drag.originalPoint, snapped);
       return;
     }
     if (!this.pendingDrag || this.pendingDrag.pointerId !== event.pointerId) return;
@@ -181,8 +266,17 @@ export class WallsLayer {
   }
 
   onStagePointerUp(event) {
-    if (this.endpointDrag && this.endpointDrag.pointerId === event.pointerId) {
-      this.endpointDrag = null;
+    if (this.vertexDrag && this.vertexDrag.pointerId === event.pointerId) {
+      const { dragging, originalPoint, connections } = this.vertexDrag;
+      this.vertexDrag = null;
+      if (!dragging) {
+        this.selectVertex(originalPoint);
+      } else {
+        // Le point a pu se déplacer (glissé + snap) : on retrouve sa position
+        // actuelle via l'un des murs déplacés plutôt que de la retraquer à part.
+        const wall = this.store.getWallById(connections[0].wallId);
+        if (wall) this.selectVertex(endpointOf(wall, connections[0].key), { silent: true });
+      }
       return;
     }
     if (this.pendingDrag && this.pendingDrag.pointerId === event.pointerId) {
@@ -194,13 +288,25 @@ export class WallsLayer {
 
   select(id) {
     this.selectedId = id;
+    this.selectedVertex = null;
     this.render();
     this.onSelect?.(id);
   }
 
-  clearSelection() {
-    if (!this.selectedId) return;
+  // silent: après un glissé, la sélection ne change pas logiquement (le coin
+  // était déjà "actif"), pas besoin de redéclencher onSelect (qui réinitialise
+  // par exemple la sélection composants/liaisons dans main.js).
+  selectVertex(point, { silent = false } = {}) {
     this.selectedId = null;
+    this.selectedVertex = point;
+    this.render();
+    if (!silent) this.onSelect?.(null);
+  }
+
+  clearSelection() {
+    if (!this.selectedId && !this.selectedVertex) return;
+    this.selectedId = null;
+    this.selectedVertex = null;
     this.render();
   }
 
@@ -210,7 +316,32 @@ export class WallsLayer {
   }
 
   onKeyDown(event) {
-    if (!this.selectedId || isEditingText(event.target)) return;
+    if (isEditingText(event.target)) return;
+    if (this.selectedVertex) {
+      const arrowDeltas = {
+        ArrowUp: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 },
+      };
+      const delta = arrowDeltas[event.key];
+      if (delta) {
+        event.preventDefault();
+        const step = event.shiftKey ? ARROW_STEP_SHIFT : ARROW_STEP;
+        const walls = this.store.getWallsForFloor(this.floorId);
+        const connections = findConnectedEndpoints(walls, this.selectedVertex);
+        if (connections.length === 0) return;
+        this.store.snapshot();
+        const to = { x: this.selectedVertex.x + delta.x * step, y: this.selectedVertex.y + delta.y * step };
+        this.moveVertex(connections, this.selectedVertex, to);
+        this.selectedVertex = to;
+        this.render();
+        return;
+      }
+      if (event.key === "Escape") this.select(null);
+      return;
+    }
+    if (!this.selectedId) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       this.store.removeWall(this.selectedId);

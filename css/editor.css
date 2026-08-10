@@ -625,6 +625,22 @@
   pointer-events: none;
 }
 
+.wall__joint {
+  fill: var(--color-plan-stroke);
+  pointer-events: none;
+}
+
+.wall__joint--selected {
+  fill: var(--color-accent);
+}
+
+.wall__vertex-marker {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .wall-preview {
   stroke: var(--color-plan-stroke);
   stroke-width: 2;

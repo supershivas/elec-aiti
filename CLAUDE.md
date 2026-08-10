@@ -103,6 +103,14 @@ Liaison {
   (avec snap), glissé du mur entier, épaisseurs éditables dans le panneau de propriétés,
   bouton "Inverser les côtés". Un mur n'est pas restreint aux étages "drawn" (rien ne
   l'empêche techniquement sur un étage importé) mais c'est son usage principal.
+  Deux murs dont une extrémité coïncide (à qq mm près, voir `wallJoints.js`) sont traités
+  comme reliés par un même coin, sans notion de sommet partagé dans le modèle de données :
+  la coïncidence des coordonnées fait foi. Un patch circulaire de la couleur des murs
+  comble le vide entre leurs rectangles à la jointure. Cliquer une poignée d'extrémité sans
+  glisser sélectionne ce coin (au lieu du mur) : les flèches du clavier le déplacent alors
+  de 1cm (10cm avec Maj), et déplacent ensemble toutes les extrémités de murs qui y
+  coïncident pour garder les murs connectés ; un glissé à la souris fait de même, avec un
+  nouveau snap possible vers un autre coin existant.
 - **Ouvertures (à faire)** : `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }`,
   qui découpe visuellement le mur porteur (`offset` = distance depuis (x1,y1)). Remplace,
   pour les étages dessinés, le composant "Porte" posé par-dessus (celui-ci reste utile
