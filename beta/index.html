@@ -16,6 +16,8 @@
         <div class="menubar__item">
           <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
           <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
+            <button type="button" class="menubar__action" id="menu-new-project" role="menuitem">Nouveau projet</button>
+            <hr class="menubar__separator" />
             <button type="button" class="menubar__action" id="menu-save-project" role="menuitem">Enregistrer le projet (.aiti)</button>
             <button type="button" class="menubar__action" id="menu-open-project" role="menuitem">Ouvrir un projet (.aiti)</button>
             <input type="file" id="import-file-input" accept=".aiti" hidden />
@@ -67,6 +69,7 @@
           <button type="button" id="mode-measure" class="toolbar__button">Mesurer</button>
           <label class="toolbar__links-label" for="link-type-select">Liaison</label>
           <select id="link-type-select" class="floor-select" aria-label="Type de liaison"></select>
+          <button type="button" id="btn-recenter-view" class="toolbar__button" title="Recentrer la vue sur le plan">Recentrer</button>
         </div>
         <div class="stage__overlay stage__overlay--bottom-left scale-bar" id="scale-bar" aria-hidden="true">
           <span class="scale-bar__line" id="scale-bar-line"></span>

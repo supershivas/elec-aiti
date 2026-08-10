@@ -341,6 +341,15 @@ export class Store {
     this.notify();
   }
 
+  // Nouveau projet : repart des étages fournis par défaut, vide tout le reste.
+  // Un seul cran d'annulation, comme loadProject, pour pouvoir revenir en
+  // arrière en cas de clic accidentel.
+  resetProject() {
+    this.snapshot();
+    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
+    this.notify();
+  }
+
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
   // seul cran d'annulation.
   loadProject(data) {

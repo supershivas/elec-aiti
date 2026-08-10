@@ -44,6 +44,7 @@ const roomModeButtonEl = document.querySelector("#mode-room");
 const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
+const recenterViewButtonEl = document.querySelector("#btn-recenter-view");
 
 for (const linkType of linkTypes) {
   const option = document.createElement("option");
@@ -318,6 +319,18 @@ const menuBar = new MenuBar([
   { triggerId: "menu-plan-trigger", dropdownId: "menu-plan-dropdown" },
 ]);
 
+menuBar.onAction("#menu-new-project", async () => {
+  if (
+    !confirm(
+      "Créer un nouveau projet ? Cela remplace tous les étages actuels (annulable avec Édition > Annuler). Pensez à enregistrer avant si besoin.",
+    )
+  ) {
+    return;
+  }
+  store.resetProject();
+  renderFloorOptions();
+  await switchToFloor(store.getFloors()[0].id);
+});
 menuBar.onAction("#menu-save-project", () => exportProjectFile(store));
 menuBar.onAction("#menu-open-project", () => importFileInputEl.click());
 importFileInputEl.addEventListener("change", async () => {
@@ -406,6 +419,8 @@ menuBar.onAction("#menu-delete-floor", async () => {
     await switchToFloor(remainingFloor.id);
   }
 });
+
+recenterViewButtonEl?.addEventListener("click", () => stage.resetView());
 
 const initialFloor = store.getFloors()[0];
 switchToFloor(initialFloor.id);
