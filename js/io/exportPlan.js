@@ -4,7 +4,6 @@
 // d'impression du navigateur ("Enregistrer en PDF"), pour éviter d'ajouter
 // une librairie de génération PDF juste pour ce besoin.
 import { getCatalogEntry } from "../catalog/components.js";
-import { floors } from "../floors.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -161,9 +160,10 @@ async function forEachFloor(stage, componentsLayer, linksLayer, store, callback)
   const originalFloorId = componentsLayer.floorId;
   const originalComponentId = componentsLayer.selectedId;
   const originalLiaisonId = linksLayer.selectedId;
-  const originalFloor = floors.find((f) => f.id === originalFloorId);
+  const allFloors = store.getFloors();
+  const originalFloor = allFloors.find((f) => f.id === originalFloorId);
 
-  for (const floor of floors) {
+  for (const floor of allFloors) {
     await stage.loadFloor(floor);
     componentsLayer.setFloor(floor.id);
     linksLayer.setFloor(floor.id);

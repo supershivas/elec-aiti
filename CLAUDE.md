@@ -66,7 +66,14 @@ Liaison {
   passe par la boîte de dialogue d'impression du navigateur, sans dépendance de génération PDF.
 
 ## Gestion multi-étages
-- Un `floors.json` (ou tableau en dur) liste les étages : `{id, label, planPath}`.
+- La liste des étages vit dans le Store (`state.floors`, persistée comme le reste en
+  localStorage + `.aiti`), pas dans un fichier statique : menu Plan > Nouvel étage /
+  Renommer / Supprimer (toujours au moins un étage). `floors.js` ne fournit plus que
+  `defaultFloors`, le jeu de départ utilisé quand aucun projet n'est encore enregistré.
+- Chaque étage a un `kind` : `imported` (plan de fond vectorisé à la main, `planPath` vers
+  un SVG, lecture seule — RDC et 1er étage fournis avec le projet) ou `drawn` (étage créé
+  dans l'appli, sans `planPath`, dont les murs sont dessinés directement — voir la section
+  Dessin de plans ci-dessous).
 - Les composants/liaisons sont scopés par `floorId`. On affiche un étage à la fois,
   sélecteur d'étage en haut de l'UI.
 - Les liaisons ne traversent pas les étages : un fil reste toujours dans le `floorId`
@@ -78,6 +85,27 @@ Liaison {
   peut ensuite être reliée à un interrupteur local via une liaison normale sur cet
   étage. "Aller à l'exemplaire lié" bascule d'étage et sélectionne le double ;
   "Dissocier" retire le lien sans supprimer les composants.
+
+## Dessin de plans (étages "drawn")
+- Objectif : pouvoir recréer un plan aussi complet que RDC/1er étage (murs, ouvertures,
+  pièces) sur un étage créé dans l'appli. Les deux plans importés existants restent des
+  images de fond figées, non éditables — pas de conversion prévue dans l'autre sens.
+- Modèle de données (à ajouter à `state.js`, scopé par `floorId` comme composants/liaisons) :
+  - `Wall { id, floorId, x1, y1, x2, y2, thickness }` : segment de mur.
+  - `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }` : ouverture
+    qui découpe visuellement le mur porteur (`offset` = distance depuis (x1,y1)). Remplace,
+    pour les étages dessinés, le composant "Porte" posé par-dessus (celui-ci reste utile
+    pour repérer une porte sur les plans importés, où on ne peut pas creuser le mur).
+  - `RoomArea { id, floorId, points: [{x,y}, ...], label? }` : polygone de pièce fermé,
+    tracé à la main (pas de détection automatique de boucle fermée à partir des murs :
+    trop complexe pour la valeur ajoutée en v1), avec remplissage + label optionnel.
+- Outils (même famille que Mesurer/liaisons : clic-clic, snap, Échap pour annuler) :
+  outil Murs (chaîne de segments, snap 0/45/90° et aux murs existants), sélection/édition
+  d'un mur (extrémités, épaisseur, suppression), outil Ouverture (clic sur un mur + largeur),
+  outil Pièce (clic-clic pour fermer un polygone + label texte).
+- Rendu : nouveau calque dédié dans le SVG hôte (avant le calque composants, comme le plan
+  de fond importé), construit à partir de `Wall`/`Opening`/`RoomArea` plutôt qu'injecté tel
+  quel comme les SVG importés.
 
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
@@ -112,7 +140,7 @@ Liaison {
   js/
     main.js
     state.js              # store applicatif (composants, liaisons, étage courant)
-    floors.js             # liste des étages + chargement des plans SVG
+    floors.js             # defaultFloors (jeu de départ ; la liste vivante est dans le Store)
     io/
       storage.js           # localStorage
       exportImport.js       # export/import JSON

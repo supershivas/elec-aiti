@@ -1,17 +1,24 @@
+import { defaultFloors } from "./floors.js";
+
 const STORAGE_KEY = "elec-aiti:project";
 const MAX_HISTORY = 50;
+
+function seedFloors() {
+  return defaultFloors.map((floor) => ({ ...floor }));
+}
 
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { components: [], liaisons: [] };
+    if (!raw) return { floors: seedFloors(), components: [], liaisons: [] };
     const parsed = JSON.parse(raw);
     return {
+      floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
       components: Array.isArray(parsed.components) ? parsed.components : [],
       liaisons: Array.isArray(parsed.liaisons) ? parsed.liaisons : [],
     };
   } catch {
-    return { components: [], liaisons: [] };
+    return { floors: seedFloors(), components: [], liaisons: [] };
   }
 }
 
@@ -47,7 +54,9 @@ export class Store {
   }
 
   snapshot() {
-    this.history.push(JSON.stringify({ components: this.state.components, liaisons: this.state.liaisons }));
+    this.history.push(
+      JSON.stringify({ floors: this.state.floors, components: this.state.components, liaisons: this.state.liaisons }),
+    );
     if (this.history.length > MAX_HISTORY) this.history.shift();
   }
 
@@ -59,8 +68,51 @@ export class Store {
     const previous = this.history.pop();
     if (previous === undefined) return false;
     const parsed = JSON.parse(previous);
+    this.state.floors = parsed.floors;
     this.state.components = parsed.components;
     this.state.liaisons = parsed.liaisons;
+    this.notify();
+    return true;
+  }
+
+  getFloors() {
+    return this.state.floors;
+  }
+
+  getFloorById(id) {
+    return this.state.floors.find((floor) => floor.id === id);
+  }
+
+  addFloor(label) {
+    this.snapshot();
+    const floor = { id: createId("f"), label, kind: "drawn" };
+    this.state.floors.push(floor);
+    this.notify();
+    return floor;
+  }
+
+  renameFloor(id, label) {
+    const floor = this.state.floors.find((f) => f.id === id);
+    if (!floor) return;
+    this.snapshot();
+    floor.label = label;
+    this.notify();
+  }
+
+  // On garde toujours au moins un étage : un plan sans aucun étage n'a pas de
+  // sens dans cette appli (pas d'écran "projet vide").
+  removeFloor(id) {
+    if (this.state.floors.length <= 1) return false;
+    this.snapshot();
+    const removedComponentIds = new Set(this.state.components.filter((c) => c.floorId === id).map((c) => c.id));
+    this.state.floors = this.state.floors.filter((f) => f.id !== id);
+    this.state.components = this.state.components.filter((c) => c.floorId !== id);
+    for (const component of this.state.components) {
+      if (component.linkedComponentId && removedComponentIds.has(component.linkedComponentId)) {
+        component.linkedComponentId = undefined;
+      }
+    }
+    this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== id);
     this.notify();
     return true;
   }
@@ -173,6 +225,7 @@ export class Store {
   loadProject(data) {
     this.snapshot();
     this.state = {
+      floors: Array.isArray(data?.floors) && data.floors.length > 0 ? data.floors : seedFloors(),
       components: Array.isArray(data?.components) ? data.components : [],
       liaisons: Array.isArray(data?.liaisons) ? data.liaisons : [],
     };

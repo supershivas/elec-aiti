@@ -24,6 +24,14 @@ export class Stage {
 
   async loadFloor(floor) {
     this.hideError();
+    // Étage "dessiné" dans l'appli (voir Store.addFloor) : pas de plan de fond
+    // importé, juste le viewBox par défaut en attendant l'outil de murs.
+    if (!floor.planPath) {
+      this.baseViewBox = { x: 0, y: 0, width: 1558, height: 801.32 };
+      this.resetView();
+      this.planLayer.replaceChildren();
+      return;
+    }
     try {
       const response = await fetch(encodeURI(floor.planPath));
       if (!response.ok) {

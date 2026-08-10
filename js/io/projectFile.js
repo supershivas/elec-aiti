@@ -11,7 +11,11 @@ function formatDateForFilename(date = new Date()) {
 }
 
 export async function exportProjectFile(store) {
-  const data = JSON.stringify({ components: store.state.components, liaisons: store.state.liaisons }, null, 2);
+  const data = JSON.stringify(
+    { floors: store.state.floors, components: store.state.components, liaisons: store.state.liaisons },
+    null,
+    2,
+  );
   const blob = new Blob([data], { type: "application/json" });
   const suggestedName = `circuit-${formatDateForFilename()}.aiti`;
 

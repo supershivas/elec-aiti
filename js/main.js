@@ -1,4 +1,3 @@
-import { floors, getFloorById } from "./floors.js";
 import { Stage } from "./editor/stage.js";
 import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
@@ -13,6 +12,7 @@ import { linkTypes } from "./catalog/linkTypes.js";
 import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
+import { promptFloorName } from "./editor/floorDialog.js";
 
 const svgEl = document.querySelector("#stage-svg");
 const errorEl = document.querySelector("#stage-error");
@@ -30,13 +30,6 @@ const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
 
-for (const floor of floors) {
-  const option = document.createElement("option");
-  option.value = floor.id;
-  option.textContent = floor.label;
-  floorSelectEl.appendChild(option);
-}
-
 for (const linkType of linkTypes) {
   const option = document.createElement("option");
   option.value = linkType.type;
@@ -47,6 +40,24 @@ for (const linkType of linkTypes) {
 const stage = new Stage(svgEl, errorEl);
 const store = new Store();
 new ScaleBar({ stage, lineEl: scaleBarLineEl, labelEl: scaleBarLabelEl });
+
+// La liste des étages vit dans le Store (création/renommage/suppression) :
+// on reconstruit les options à chaque modification plutôt qu'une fois au
+// chargement. Ne pas appeler ça depuis store.onChange (qui se déclenche à
+// chaque frame de glissé d'un composant) : seulement après une action qui
+// touche vraiment la liste des étages.
+function renderFloorOptions() {
+  const currentValue = floorSelectEl.value;
+  floorSelectEl.replaceChildren();
+  for (const floor of store.getFloors()) {
+    const option = document.createElement("option");
+    option.value = floor.id;
+    option.textContent = floor.label;
+    floorSelectEl.appendChild(option);
+  }
+  if (store.getFloorById(currentValue)) floorSelectEl.value = currentValue;
+}
+renderFloorOptions();
 
 // Déclarées avant d'être assignées : les calques ont besoin de se référencer
 // mutuellement pour que sélectionner l'un désélectionne l'autre.
@@ -100,11 +111,8 @@ propertiesPanel = new PropertiesPanel({
   linksLayer,
   // "Aller à l'exemplaire lié" (élément multi-étage) : bascule d'étage puis
   // sélectionne et recentre la vue sur son double.
-  onGoToLinkedComponent: (floorId, componentId) => {
-    if (floorSelectEl.value !== floorId) {
-      floorSelectEl.value = floorId;
-      floorSelectEl.dispatchEvent(new Event("change"));
-    }
+  onGoToLinkedComponent: async (floorId, componentId) => {
+    await switchToFloor(floorId);
     const component = store.getComponentsForFloor(floorId).find((c) => c.id === componentId);
     if (!component) return;
     componentsLayer.select(componentId);
@@ -122,6 +130,19 @@ function refreshUndoState() {
   undoMenuButton.disabled = !store.canUndo();
 }
 
+// Point d'entrée unique pour changer d'étage affiché (sélecteur, "aller à
+// l'exemplaire lié", création/suppression d'étage) : garde le stage, les
+// calques et le sélecteur synchronisés.
+async function switchToFloor(floorId) {
+  const floor = store.getFloorById(floorId);
+  if (!floor) return;
+  floorSelectEl.value = floor.id;
+  await stage.loadFloor(floor);
+  componentsLayer.setFloor(floor.id);
+  linksLayer.setFloor(floor.id);
+  propertiesPanel.refresh();
+}
+
 store.onChange(() => {
   componentsLayer.render();
   linksLayer.render();
@@ -132,13 +153,7 @@ store.onChange(() => {
   queueMicrotask(() => propertiesPanel.refresh());
 });
 
-floorSelectEl.addEventListener("change", () => {
-  const floor = getFloorById(floorSelectEl.value);
-  stage.loadFloor(floor);
-  componentsLayer.setFloor(floor.id);
-  linksLayer.setFloor(floor.id);
-  propertiesPanel.refresh();
-});
+floorSelectEl.addEventListener("change", () => switchToFloor(floorSelectEl.value));
 
 // --- Modes d'interaction -------------------------------------------------
 // La liaison se propose directement au clic sur un composant (voir
@@ -181,6 +196,18 @@ window.addEventListener("keydown", (event) => {
   exitMeasuring();
 });
 
+// L'annulation peut porter sur la liste des étages elle-même (création,
+// renommage, suppression) : après un undo, le sélecteur d'étage doit refléter
+// la liste restaurée, et si l'étage affiché n'existe plus on bascule sur le
+// premier disponible.
+function undoAndSyncFloors() {
+  if (!store.undo()) return;
+  renderFloorOptions();
+  if (!store.getFloorById(componentsLayer.floorId)) {
+    switchToFloor(store.getFloors()[0].id);
+  }
+}
+
 // Ctrl/Cmd+Z : annuler. Si le focus est dans un champ de texte, on laisse le
 // navigateur gérer son propre undo natif plutôt que d'annuler une action du plan.
 window.addEventListener("keydown", (event) => {
@@ -188,7 +215,7 @@ window.addEventListener("keydown", (event) => {
   const isUndoShortcut = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
   if (!isUndoShortcut) return;
   event.preventDefault();
-  store.undo();
+  undoAndSyncFloors();
 });
 
 const menuBar = new MenuBar([
@@ -208,6 +235,8 @@ importFileInputEl.addEventListener("change", async () => {
   }
   try {
     await importProjectFile(store, file);
+    renderFloorOptions();
+    await switchToFloor(store.getFloors()[0].id);
   } catch (error) {
     alert(error.message);
   }
@@ -220,9 +249,9 @@ menuBar.onAction("#menu-export-svg", () => exportSvg(stage, componentsLayer, lin
 menuBar.onAction("#menu-export-png", () => exportPng(stage, componentsLayer, linksLayer, store));
 menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, componentsLayer, linksLayer, store));
 menuBar.onAction("#menu-print", () => exportPdf(stage, componentsLayer, linksLayer, store));
-menuBar.onAction("#menu-undo", () => store.undo());
+menuBar.onAction("#menu-undo", () => undoAndSyncFloors());
 menuBar.onAction("#menu-clear", () => {
-  const floor = getFloorById(floorSelectEl.value);
+  const floor = store.getFloorById(floorSelectEl.value);
   if (confirm(`Effacer tous les composants de l'étage "${floor.label}" ? Cette action peut être annulée avec Édition > Annuler.`)) {
     store.clearFloor(floor.id);
   }
@@ -232,14 +261,54 @@ const elementsListDialog = new ElementsListDialog({
   store,
   stage,
   componentsLayer,
-  getFloor: () => getFloorById(floorSelectEl.value),
+  getFloor: () => store.getFloorById(floorSelectEl.value),
 });
 menuBar.onAction("#menu-elements-list", () => elementsListDialog.open());
 
-const initialFloor = floors[0];
-floorSelectEl.value = initialFloor.id;
-stage.loadFloor(initialFloor);
-componentsLayer.setFloor(initialFloor.id);
-linksLayer.setFloor(initialFloor.id);
+// Gestion des étages : créer un étage vierge (pas de plan de fond importé,
+// voir Stage.loadFloor), renommer ou supprimer l'étage affiché.
+menuBar.onAction("#menu-new-floor", async () => {
+  const name = await promptFloorName({
+    title: "Nouvel étage",
+    submitLabel: "Créer l'étage",
+    defaultName: `Étage ${store.getFloors().length + 1}`,
+  });
+  if (!name) return;
+  const floor = store.addFloor(name);
+  renderFloorOptions();
+  await switchToFloor(floor.id);
+});
+
+menuBar.onAction("#menu-rename-floor", async () => {
+  const floor = store.getFloorById(floorSelectEl.value);
+  if (!floor) return;
+  const name = await promptFloorName({ title: "Renommer l'étage", submitLabel: "Renommer", defaultName: floor.label });
+  if (!name) return;
+  store.renameFloor(floor.id, name);
+  renderFloorOptions();
+});
+
+menuBar.onAction("#menu-delete-floor", async () => {
+  const floor = store.getFloorById(floorSelectEl.value);
+  if (!floor) return;
+  if (store.getFloors().length <= 1) {
+    alert("Impossible de supprimer le dernier étage : il en faut toujours au moins un.");
+    return;
+  }
+  const remainingFloor = store.getFloors().find((f) => f.id !== floor.id);
+  if (
+    !confirm(
+      `Supprimer l'étage "${floor.label}" et tout son contenu (composants, liaisons) ? Cette action peut être annulée avec Édition > Annuler.`,
+    )
+  ) {
+    return;
+  }
+  if (store.removeFloor(floor.id)) {
+    renderFloorOptions();
+    await switchToFloor(remainingFloor.id);
+  }
+});
+
+const initialFloor = store.getFloors()[0];
+switchToFloor(initialFloor.id);
 refreshUndoState();
-propertiesPanel.refresh();

@@ -1,6 +1,5 @@
 import { catalog, getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
-import { floors, getFloorById } from "../floors.js";
 
 function field(labelText, inputEl) {
   const wrapper = document.createElement("label");
@@ -213,7 +212,7 @@ export class PropertiesPanel {
     const linked = component.linkedComponentId ? this.store.getComponentById(component.linkedComponentId) : null;
 
     if (linked) {
-      const linkedFloor = getFloorById(linked.floorId);
+      const linkedFloor = this.store.getFloorById(linked.floorId);
       const info = document.createElement("p");
       info.className = "properties__empty";
       info.textContent = `Également posé sur : ${linkedFloor?.label || linked.floorId}.`;
@@ -233,7 +232,7 @@ export class PropertiesPanel {
       unlinkBtn.addEventListener("click", () => this.store.unlinkComponent(component.id));
       this.containerEl.appendChild(unlinkBtn);
     } else {
-      for (const floor of floors.filter((f) => f.id !== component.floorId)) {
+      for (const floor of this.store.getFloors().filter((f) => f.id !== component.floorId)) {
         const addBtn = document.createElement("button");
         addBtn.type = "button";
         addBtn.className = "toolbar__button";
