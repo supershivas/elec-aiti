@@ -14,17 +14,19 @@ function field(labelText, inputEl) {
 // Panneau de propriétés du composant ou de la liaison sélectionné(e).
 // Se contente de relire l'état courant à chaque refresh() : pas d'état interne.
 export class PropertiesPanel {
-  constructor({ containerEl, store, componentsLayer, linksLayer, onGoToLinkedComponent }) {
+  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, onGoToLinkedComponent }) {
     this.containerEl = containerEl;
     this.store = store;
     this.componentsLayer = componentsLayer;
     this.linksLayer = linksLayer;
+    this.wallsLayer = wallsLayer;
     this.onGoToLinkedComponent = onGoToLinkedComponent;
   }
 
   refresh() {
     const component = this.componentsLayer.getSelectedComponent();
     const liaison = component ? null : this.linksLayer.getSelectedLiaison();
+    const wall = component || liaison ? null : this.wallsLayer.getSelectedWall();
     this.containerEl.replaceChildren();
 
     // Titre du panneau lui-même (h2, cohérent avec le h1 du bandeau du haut) :
@@ -38,10 +40,12 @@ export class PropertiesPanel {
       this.renderComponentProps(component);
     } else if (liaison) {
       this.renderLiaisonProps(liaison);
+    } else if (wall) {
+      this.renderWallProps(wall);
     } else {
       const empty = document.createElement("p");
       empty.className = "properties__empty";
-      empty.textContent = "Sélectionnez un composant ou une liaison pour voir ses propriétés.";
+      empty.textContent = "Sélectionnez un composant, une liaison ou un mur pour voir ses propriétés.";
       this.containerEl.appendChild(empty);
     }
   }
@@ -319,6 +323,59 @@ export class PropertiesPanel {
     );
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeLiaison(liaison.id)));
+  }
+
+  // L'épaisseur d'un mur est indépendante de chaque côté (pas centrée sur le
+  // segment) : un repère pointillé sur le plan (voir WallsLayer) indique quelle
+  // face correspond à "côté 1", pour que ces deux champs restent compréhensibles.
+  renderWallProps(wall) {
+    const title = document.createElement("h3");
+    title.className = "properties__title";
+    title.textContent = "Mur";
+    this.containerEl.appendChild(title);
+
+    const hint = document.createElement("p");
+    hint.className = "properties__empty";
+    hint.textContent = "Le repère pointillé sur le plan indique le côté 1.";
+    this.containerEl.appendChild(hint);
+
+    const leftInput = document.createElement("input");
+    leftInput.type = "number";
+    leftInput.min = "0";
+    leftInput.value = wall.thicknessLeft;
+    leftInput.addEventListener("change", () => {
+      const value = Math.max(0, Number(leftInput.value)) || 0;
+      this.store.snapshot();
+      this.store.updateWall(wall.id, { thicknessLeft: value });
+    });
+    this.containerEl.appendChild(field("Épaisseur côté 1 (cm)", leftInput));
+
+    const rightInput = document.createElement("input");
+    rightInput.type = "number";
+    rightInput.min = "0";
+    rightInput.value = wall.thicknessRight;
+    rightInput.addEventListener("change", () => {
+      const value = Math.max(0, Number(rightInput.value)) || 0;
+      this.store.snapshot();
+      this.store.updateWall(wall.id, { thicknessRight: value });
+    });
+    this.containerEl.appendChild(field("Épaisseur côté 2 (cm)", rightInput));
+
+    const swapBtn = document.createElement("button");
+    swapBtn.type = "button";
+    swapBtn.className = "toolbar__button";
+    swapBtn.textContent = "Inverser les côtés";
+    swapBtn.addEventListener("click", () => {
+      this.store.snapshot();
+      this.store.updateWall(wall.id, { thicknessLeft: wall.thicknessRight, thicknessRight: wall.thicknessLeft });
+    });
+    this.containerEl.appendChild(swapBtn);
+
+    const divider = document.createElement("hr");
+    divider.className = "properties__divider";
+    this.containerEl.appendChild(divider);
+
+    this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeWall(wall.id)));
   }
 
   buildDeleteButton(onDelete) {

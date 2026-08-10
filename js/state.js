@@ -10,15 +10,16 @@ function seedFloors() {
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { floors: seedFloors(), components: [], liaisons: [] };
+    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [] };
     const parsed = JSON.parse(raw);
     return {
       floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
       components: Array.isArray(parsed.components) ? parsed.components : [],
       liaisons: Array.isArray(parsed.liaisons) ? parsed.liaisons : [],
+      walls: Array.isArray(parsed.walls) ? parsed.walls : [],
     };
   } catch {
-    return { floors: seedFloors(), components: [], liaisons: [] };
+    return { floors: seedFloors(), components: [], liaisons: [], walls: [] };
   }
 }
 
@@ -55,7 +56,12 @@ export class Store {
 
   snapshot() {
     this.history.push(
-      JSON.stringify({ floors: this.state.floors, components: this.state.components, liaisons: this.state.liaisons }),
+      JSON.stringify({
+        floors: this.state.floors,
+        components: this.state.components,
+        liaisons: this.state.liaisons,
+        walls: this.state.walls,
+      }),
     );
     if (this.history.length > MAX_HISTORY) this.history.shift();
   }
@@ -71,6 +77,7 @@ export class Store {
     this.state.floors = parsed.floors;
     this.state.components = parsed.components;
     this.state.liaisons = parsed.liaisons;
+    this.state.walls = parsed.walls ?? [];
     this.notify();
     return true;
   }
@@ -113,6 +120,7 @@ export class Store {
       }
     }
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== id);
+    this.state.walls = this.state.walls.filter((w) => w.floorId !== id);
     this.notify();
     return true;
   }
@@ -220,6 +228,39 @@ export class Store {
     this.notify();
   }
 
+  getWallsForFloor(floorId) {
+    return this.state.walls.filter((wall) => wall.floorId === floorId);
+  }
+
+  getWallById(id) {
+    return this.state.walls.find((wall) => wall.id === id);
+  }
+
+  // thicknessLeft/thicknessRight sont indépendantes : un mur n'est pas centré sur
+  // son segment de référence (x1,y1)-(x2,y2), ce qui permet par exemple un mur
+  // extérieur dont toute l'épaisseur part vers l'extérieur (thickness côté
+  // intérieur = 0) plutôt qu'une épaisseur symétrique de part et d'autre.
+  addWall({ floorId, x1, y1, x2, y2, thicknessLeft = 5, thicknessRight = 5 }) {
+    this.snapshot();
+    const wall = { id: createId("w"), floorId, x1, y1, x2, y2, thicknessLeft, thicknessRight };
+    this.state.walls.push(wall);
+    this.notify();
+    return wall;
+  }
+
+  updateWall(id, changes) {
+    const wall = this.state.walls.find((w) => w.id === id);
+    if (!wall) return;
+    Object.assign(wall, changes);
+    this.notify();
+  }
+
+  removeWall(id) {
+    this.snapshot();
+    this.state.walls = this.state.walls.filter((w) => w.id !== id);
+    this.notify();
+  }
+
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
   // seul cran d'annulation.
   loadProject(data) {
@@ -228,6 +269,7 @@ export class Store {
       floors: Array.isArray(data?.floors) && data.floors.length > 0 ? data.floors : seedFloors(),
       components: Array.isArray(data?.components) ? data.components : [],
       liaisons: Array.isArray(data?.liaisons) ? data.liaisons : [],
+      walls: Array.isArray(data?.walls) ? data.walls : [],
     };
     this.notify();
   }
@@ -244,6 +286,7 @@ export class Store {
       }
     }
     this.state.liaisons = this.state.liaisons.filter((l) => l.floorId !== floorId);
+    this.state.walls = this.state.walls.filter((w) => w.floorId !== floorId);
     this.notify();
   }
 }

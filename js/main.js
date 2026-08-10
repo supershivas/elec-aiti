@@ -3,6 +3,8 @@ import { Store } from "./state.js";
 import { Palette } from "./editor/palette.js";
 import { ComponentsLayer } from "./editor/componentsLayer.js";
 import { LinksLayer } from "./editor/linksLayer.js";
+import { WallsLayer } from "./editor/wallsLayer.js";
+import { WallTool } from "./editor/wallTool.js";
 import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
@@ -20,11 +22,14 @@ const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
 const linksLayerEl = document.querySelector("#links-layer");
+const wallsLayerEl = document.querySelector("#walls-layer");
+const wallPreviewLayerEl = document.querySelector("#wall-preview-layer");
 const measureLayerEl = document.querySelector("#measure-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const selectModeButtonEl = document.querySelector("#mode-select");
+const wallModeButtonEl = document.querySelector("#mode-wall");
 const measureModeButtonEl = document.querySelector("#mode-measure");
 const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
@@ -60,8 +65,9 @@ function renderFloorOptions() {
 renderFloorOptions();
 
 // Déclarées avant d'être assignées : les calques ont besoin de se référencer
-// mutuellement pour que sélectionner l'un désélectionne l'autre.
+// mutuellement pour que sélectionner l'un désélectionne les autres.
 let linksLayer;
+let wallsLayer;
 let propertiesPanel;
 
 const componentsLayer = new ComponentsLayer({
@@ -74,6 +80,7 @@ const componentsLayer = new ComponentsLayer({
   },
   onSelect: () => {
     linksLayer.clearSelection();
+    wallsLayer.clearSelection();
     syncCrossHighlight();
     propertiesPanel.refresh();
   },
@@ -84,7 +91,7 @@ const componentsLayer = new ComponentsLayer({
 const palette = new Palette({
   containerEl: paletteEl,
   onArm: (type) => {
-    exitMeasuring();
+    setMode("select");
     linksLayer.stopLinking();
     componentsLayer.armPlacement(type);
   },
@@ -97,11 +104,24 @@ linksLayer = new LinksLayer({
   componentsLayer,
   onSelect: () => {
     componentsLayer.clearSelection();
+    wallsLayer.clearSelection();
     syncCrossHighlight();
     propertiesPanel.refresh();
   },
 });
 
+wallsLayer = new WallsLayer({
+  layerEl: wallsLayerEl,
+  stage,
+  store,
+  onSelect: () => {
+    componentsLayer.clearSelection();
+    linksLayer.clearSelection();
+    propertiesPanel.refresh();
+  },
+});
+
+const wallTool = new WallTool({ layerEl: wallPreviewLayerEl, stage, store });
 const measureTool = new MeasureTool({ layerEl: measureLayerEl, stage });
 
 propertiesPanel = new PropertiesPanel({
@@ -109,6 +129,7 @@ propertiesPanel = new PropertiesPanel({
   store,
   componentsLayer,
   linksLayer,
+  wallsLayer,
   // "Aller à l'exemplaire lié" (élément multi-étage) : bascule d'étage puis
   // sélectionne et recentre la vue sur son double.
   onGoToLinkedComponent: async (floorId, componentId) => {
@@ -140,12 +161,15 @@ async function switchToFloor(floorId) {
   await stage.loadFloor(floor);
   componentsLayer.setFloor(floor.id);
   linksLayer.setFloor(floor.id);
+  wallsLayer.setFloor(floor.id);
+  wallTool.setFloor(floor.id);
   propertiesPanel.refresh();
 }
 
 store.onChange(() => {
   componentsLayer.render();
   linksLayer.render();
+  wallsLayer.render();
   refreshUndoState();
   // Différé : si le changement vient d'un champ du panneau lui-même (évènement
   // "change" en cours), reconstruire son DOM tout de suite fait planter le
@@ -158,42 +182,50 @@ floorSelectEl.addEventListener("change", () => switchToFloor(floorSelectEl.value
 // --- Modes d'interaction -------------------------------------------------
 // La liaison se propose directement au clic sur un composant (voir
 // onComponentClicked plus haut), plus besoin d'un outil "Tracer" à armer.
-// Il reste deux modes exclusifs : sélection (défaut) et mesure.
-function exitMeasuring() {
-  if (!measureModeButtonEl.classList.contains("toolbar__button--armed")) return;
-  measureTool.setActive(false);
-  measureModeButtonEl.classList.remove("toolbar__button--armed");
-  componentsLayer.setSuspended(false);
-  stage.svgEl.classList.remove("stage__svg--measuring");
-  selectModeButtonEl.classList.add("toolbar__button--armed");
+// Trois modes exclusifs : sélection (défaut), murs, mesure. En dehors du mode
+// sélection, composants et murs sont "suspendus" (plus de sélection/glissé
+// sur l'existant) pour ne pas intercepter les clics destinés à l'outil actif.
+let currentMode = "select";
+
+function setMode(mode) {
+  currentMode = mode;
+  selectModeButtonEl.classList.toggle("toolbar__button--armed", mode === "select");
+  wallModeButtonEl.classList.toggle("toolbar__button--armed", mode === "wall");
+  measureModeButtonEl.classList.toggle("toolbar__button--armed", mode === "measure");
+  stage.svgEl.classList.toggle("stage__svg--measuring", mode === "measure");
+  stage.svgEl.classList.toggle("stage__svg--wall-drawing", mode === "wall");
+  componentsLayer.setSuspended(mode !== "select");
+  wallsLayer.setSuspended(mode !== "select");
+  measureTool.setActive(mode === "measure");
+  wallTool.setActive(mode === "wall");
 }
 
 selectModeButtonEl.addEventListener("click", () => {
   palette.setArmed(null);
   componentsLayer.armPlacement(null);
   linksLayer.stopLinking();
-  exitMeasuring();
+  setMode("select");
 });
 
-measureModeButtonEl.addEventListener("click", () => {
-  const wasActive = measureModeButtonEl.classList.contains("toolbar__button--armed");
+wallModeButtonEl.addEventListener("click", () => {
   palette.setArmed(null);
   componentsLayer.armPlacement(null);
   linksLayer.stopLinking();
-  exitMeasuring();
-  if (wasActive) return;
-  selectModeButtonEl.classList.remove("toolbar__button--armed");
-  measureModeButtonEl.classList.add("toolbar__button--armed");
-  stage.svgEl.classList.add("stage__svg--measuring");
-  componentsLayer.setSuspended(true);
-  measureTool.setActive(true);
+  setMode(currentMode === "wall" ? "select" : "wall");
 });
 
-// Échap : désélectionne, annule une liaison en attente (déjà géré dans
-// ComponentsLayer/LinksLayer), et sort du mode mesure.
+measureModeButtonEl.addEventListener("click", () => {
+  palette.setArmed(null);
+  componentsLayer.armPlacement(null);
+  linksLayer.stopLinking();
+  setMode(currentMode === "measure" ? "select" : "measure");
+});
+
+// Échap : désélectionne, annule une liaison/mur en attente (déjà géré dans
+// ComponentsLayer/LinksLayer/WallTool), et revient au mode sélection.
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || isEditingText(event.target)) return;
-  exitMeasuring();
+  setMode("select");
 });
 
 // L'annulation peut porter sur la liste des étages elle-même (création,
@@ -245,14 +277,18 @@ importFileInputEl.addEventListener("change", async () => {
 // Les exports couvrent toujours tous les étages (un fichier par étage pour
 // SVG/PNG, une seule PDF multi-pages pour PDF/impression), pas seulement
 // celui affiché à l'écran.
-menuBar.onAction("#menu-export-svg", () => exportSvg(stage, componentsLayer, linksLayer, store));
-menuBar.onAction("#menu-export-png", () => exportPng(stage, componentsLayer, linksLayer, store));
-menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, componentsLayer, linksLayer, store));
-menuBar.onAction("#menu-print", () => exportPdf(stage, componentsLayer, linksLayer, store));
+menuBar.onAction("#menu-export-svg", () => exportSvg(stage, componentsLayer, linksLayer, wallsLayer, store));
+menuBar.onAction("#menu-export-png", () => exportPng(stage, componentsLayer, linksLayer, wallsLayer, store));
+menuBar.onAction("#menu-export-pdf", () => exportPdf(stage, componentsLayer, linksLayer, wallsLayer, store));
+menuBar.onAction("#menu-print", () => exportPdf(stage, componentsLayer, linksLayer, wallsLayer, store));
 menuBar.onAction("#menu-undo", () => undoAndSyncFloors());
 menuBar.onAction("#menu-clear", () => {
   const floor = store.getFloorById(floorSelectEl.value);
-  if (confirm(`Effacer tous les composants de l'étage "${floor.label}" ? Cette action peut être annulée avec Édition > Annuler.`)) {
+  if (
+    confirm(
+      `Effacer tout le contenu de l'étage "${floor.label}" (composants, liaisons, murs) ? Cette action peut être annulée avec Édition > Annuler.`,
+    )
+  ) {
     store.clearFloor(floor.id);
   }
 });

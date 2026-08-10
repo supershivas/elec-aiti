@@ -435,6 +435,10 @@
   cursor: crosshair;
 }
 
+.stage__svg--wall-drawing {
+  cursor: crosshair;
+}
+
 .stage__overlay {
   position: absolute;
   z-index: 5;
@@ -586,6 +590,46 @@
   fill: var(--color-measure);
   font-size: 12px;
   font-weight: 600;
+}
+
+.wall {
+  cursor: pointer;
+}
+
+.wall__hit {
+  stroke: transparent;
+  fill: none;
+}
+
+.wall__shape {
+  fill: var(--color-plan-stroke);
+  stroke: none;
+  pointer-events: none;
+}
+
+.wall--selected .wall__shape {
+  fill: var(--color-accent);
+}
+
+.wall__endpoint-handle {
+  fill: var(--color-accent);
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: move;
+}
+
+.wall__side-marker {
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+
+.wall-preview {
+  stroke: var(--color-plan-stroke);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
 }
 
 .stage__error {

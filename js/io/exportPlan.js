@@ -114,6 +114,7 @@ function buildExportSvgString(stage, floor, store) {
   const root = getComputedStyle(document.documentElement);
   const componentColor = root.getPropertyValue("--color-component").trim();
   const bgPanel = root.getPropertyValue("--color-bg-panel").trim();
+  const planStroke = root.getPropertyValue("--color-plan-stroke").trim();
   const style = document.createElementNS(SVG_NS, "style");
   style.textContent = `
     .component { color: ${componentColor}; }
@@ -123,15 +124,19 @@ function buildExportSvgString(stage, floor, store) {
     .component__door-line { stroke: currentColor; stroke-width: 2; fill: none; }
     .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
+    .wall__shape { fill: ${planStroke}; stroke: none; }
   `;
   clone.insertBefore(style, clone.firstChild);
 
   // La sélection est un état d'édition, pas une information du schéma exporté
-  clone.querySelectorAll(".component--selected, .liaison--selected").forEach((el) => {
-    el.classList.remove("component--selected", "liaison--selected");
+  clone.querySelectorAll(".component--selected, .liaison--selected, .wall--selected").forEach((el) => {
+    el.classList.remove("component--selected", "liaison--selected", "wall--selected");
   });
-  // L'outil de mesure est un repère temporaire d'édition, pas une donnée du schéma
+  // Les repères d'édition (outil de mesure, prévisualisation de mur, poignées
+  // d'extrémité/repère de côté d'un mur sélectionné) ne sont pas des données du schéma
   clone.querySelector("#measure-layer")?.remove();
+  clone.querySelector("#wall-preview-layer")?.remove();
+  clone.querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit").forEach((el) => el.remove());
 
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
     .map((type) => getCatalogEntry(type))
@@ -156,7 +161,7 @@ function buildExportSvgString(stage, floor, store) {
 // construire l'export, puis restaure l'étage et la sélection d'origine.
 // C'est le même mécanisme que "Aller à l'exemplaire lié" (multi-étage) : pas
 // de rendu hors-écran séparé à maintenir, on réutilise le stage d'édition.
-async function forEachFloor(stage, componentsLayer, linksLayer, store, callback) {
+async function forEachFloor(stage, componentsLayer, linksLayer, wallsLayer, store, callback) {
   const originalFloorId = componentsLayer.floorId;
   const originalComponentId = componentsLayer.selectedId;
   const originalLiaisonId = linksLayer.selectedId;
@@ -167,6 +172,7 @@ async function forEachFloor(stage, componentsLayer, linksLayer, store, callback)
     await stage.loadFloor(floor);
     componentsLayer.setFloor(floor.id);
     linksLayer.setFloor(floor.id);
+    wallsLayer.setFloor(floor.id);
     const built = buildExportSvgString(stage, floor, store);
     await callback(floor, built);
   }
@@ -175,13 +181,14 @@ async function forEachFloor(stage, componentsLayer, linksLayer, store, callback)
     await stage.loadFloor(originalFloor);
     componentsLayer.setFloor(originalFloor.id);
     linksLayer.setFloor(originalFloor.id);
+    wallsLayer.setFloor(originalFloor.id);
     if (originalComponentId) componentsLayer.select(originalComponentId);
     if (originalLiaisonId) linksLayer.select(originalLiaisonId);
   }
 }
 
-export async function exportSvg(stage, componentsLayer, linksLayer, store) {
-  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString }) => {
+export async function exportSvg(stage, componentsLayer, linksLayer, wallsLayer, store) {
+  await forEachFloor(stage, componentsLayer, linksLayer, wallsLayer, store, async (floor, { svgString }) => {
     downloadBlob(new Blob([svgString], { type: "image/svg+xml" }), `${floor.id}.svg`);
   });
 }
@@ -213,14 +220,14 @@ async function svgToPngBlob(svgString, width, height, scale = 2) {
   }
 }
 
-export async function exportPng(stage, componentsLayer, linksLayer, store) {
-  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString, width, height }) => {
+export async function exportPng(stage, componentsLayer, linksLayer, wallsLayer, store) {
+  await forEachFloor(stage, componentsLayer, linksLayer, wallsLayer, store, async (floor, { svgString, width, height }) => {
     const pngBlob = await svgToPngBlob(svgString, width, height);
     downloadBlob(pngBlob, `${floor.id}.png`);
   });
 }
 
-export async function exportPdf(stage, componentsLayer, linksLayer, store) {
+export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, store) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("Merci d'autoriser les pop-ups pour exporter en PDF (impression du navigateur).");
@@ -229,7 +236,7 @@ export async function exportPdf(stage, componentsLayer, linksLayer, store) {
   printWindow.document.write("<title>Génération du PDF…</title>Génération du plan…");
 
   const pages = [];
-  await forEachFloor(stage, componentsLayer, linksLayer, store, async (floor, { svgString, width, height }) => {
+  await forEachFloor(stage, componentsLayer, linksLayer, wallsLayer, store, async (floor, { svgString, width, height }) => {
     const pngBlob = await svgToPngBlob(svgString, width, height);
     pages.push({ floor, url: URL.createObjectURL(pngBlob), width, height });
   });

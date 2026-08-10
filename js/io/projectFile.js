@@ -12,7 +12,12 @@ function formatDateForFilename(date = new Date()) {
 
 export async function exportProjectFile(store) {
   const data = JSON.stringify(
-    { floors: store.state.floors, components: store.state.components, liaisons: store.state.liaisons },
+    {
+      floors: store.state.floors,
+      components: store.state.components,
+      liaisons: store.state.liaisons,
+      walls: store.state.walls,
+    },
     null,
     2,
   );

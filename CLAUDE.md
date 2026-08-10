@@ -90,22 +90,26 @@ Liaison {
 - Objectif : pouvoir recréer un plan aussi complet que RDC/1er étage (murs, ouvertures,
   pièces) sur un étage créé dans l'appli. Les deux plans importés existants restent des
   images de fond figées, non éditables — pas de conversion prévue dans l'autre sens.
-- Modèle de données (à ajouter à `state.js`, scopé par `floorId` comme composants/liaisons) :
-  - `Wall { id, floorId, x1, y1, x2, y2, thickness }` : segment de mur.
-  - `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }` : ouverture
-    qui découpe visuellement le mur porteur (`offset` = distance depuis (x1,y1)). Remplace,
-    pour les étages dessinés, le composant "Porte" posé par-dessus (celui-ci reste utile
-    pour repérer une porte sur les plans importés, où on ne peut pas creuser le mur).
-  - `RoomArea { id, floorId, points: [{x,y}, ...], label? }` : polygone de pièce fermé,
-    tracé à la main (pas de détection automatique de boucle fermée à partir des murs :
-    trop complexe pour la valeur ajoutée en v1), avec remplissage + label optionnel.
-- Outils (même famille que Mesurer/liaisons : clic-clic, snap, Échap pour annuler) :
-  outil Murs (chaîne de segments, snap 0/45/90° et aux murs existants), sélection/édition
-  d'un mur (extrémités, épaisseur, suppression), outil Ouverture (clic sur un mur + largeur),
-  outil Pièce (clic-clic pour fermer un polygone + label texte).
-- Rendu : nouveau calque dédié dans le SVG hôte (avant le calque composants, comme le plan
-  de fond importé), construit à partir de `Wall`/`Opening`/`RoomArea` plutôt qu'injecté tel
-  quel comme les SVG importés.
+- **Murs (fait)** : `Wall { id, floorId, x1, y1, x2, y2, thicknessLeft, thicknessRight }`
+  dans `state.js`, scopé par `floorId`. Le segment (x1,y1)-(x2,y2) est une ligne de
+  référence, pas forcément le centre du mur : `thicknessLeft`/`thicknessRight` sont
+  indépendantes (ex: mur extérieur avec `thicknessLeft: 0` dont toute l'épaisseur part
+  vers l'extérieur en `thicknessRight`). "Côté 1"/"côté 2" = normale au segment ;
+  un repère pointillé sur le plan indique le côté 1 quand le mur est sélectionné.
+  Outil Murs (`js/editor/wallTool.js`) : clic-clic en chaîne (comme une polyligne),
+  snap aux extrémités des murs existants et aux angles de 45° (`js/editor/wallSnapping.js`),
+  Échap pour terminer la chaîne. Rendu/sélection/édition dans `js/editor/wallsLayer.js`
+  (calque `#walls-layer`, avant le calque liaisons/composants) : glissé des extrémités
+  (avec snap), glissé du mur entier, épaisseurs éditables dans le panneau de propriétés,
+  bouton "Inverser les côtés". Un mur n'est pas restreint aux étages "drawn" (rien ne
+  l'empêche techniquement sur un étage importé) mais c'est son usage principal.
+- **Ouvertures (à faire)** : `Opening { id, floorId, wallId, offset, width, type: 'porte' | 'fenetre' }`,
+  qui découpe visuellement le mur porteur (`offset` = distance depuis (x1,y1)). Remplace,
+  pour les étages dessinés, le composant "Porte" posé par-dessus (celui-ci reste utile
+  pour repérer une porte sur les plans importés, où on ne peut pas creuser le mur).
+- **Pièces (à faire)** : `RoomArea { id, floorId, points: [{x,y}, ...], label? }`, polygone
+  fermé tracé à la main (pas de détection automatique de boucle fermée à partir des murs :
+  trop complexe pour la valeur ajoutée en v1), avec remplissage + label optionnel.
 
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
