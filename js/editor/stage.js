@@ -33,7 +33,9 @@ export class Stage {
       return;
     }
     try {
-      const response = await fetch(encodeURI(floor.planPath));
+      // Résolu par rapport à ce module (pas à la page) : le chemin marche pareil
+      // que l'app soit servie depuis la racine du site ou une sous-page (ex: /beta/).
+      const response = await fetch(new URL(floor.planPath, import.meta.url));
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }

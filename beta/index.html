@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Éditeur de schémas électriques</title>
-  <link rel="stylesheet" href="css/design-tokens.css" />
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/editor.css" />
+  <title>Éditeur de schémas électriques — Bêta</title>
+  <link rel="stylesheet" href="../css/design-tokens.css" />
+  <link rel="stylesheet" href="../css/base.css" />
+  <link rel="stylesheet" href="../css/editor.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <h1 class="topbar__title">Éditeur de schémas électriques</h1>
+      <h1 class="topbar__title">Éditeur de schémas électriques <span class="topbar__badge">Bêta</span></h1>
       <nav class="menubar" aria-label="Menu principal">
         <div class="menubar__item">
           <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
@@ -44,7 +44,7 @@
             <button type="button" class="menubar__action" id="menu-rename-floor" role="menuitem">Renommer cet étage</button>
             <button type="button" class="menubar__action menubar__action--danger" id="menu-delete-floor" role="menuitem">Supprimer cet étage</button>
             <hr class="menubar__separator" />
-            <a class="menubar__action" href="beta/" role="menuitem">Version bêta (murs, dessin de plans…)</a>
+            <a class="menubar__action" href="../" role="menuitem">Retour à la version stable</a>
           </div>
         </div>
       </nav>
@@ -162,6 +162,6 @@
       <aside id="properties-panel" class="properties" aria-label="Propriétés"></aside>
     </div>
   </div>
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="../js/main.js"></script>
 </body>
 </html>

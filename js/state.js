@@ -1,6 +1,9 @@
 import { defaultFloors } from "./floors.js";
 
-const STORAGE_KEY = "elec-aiti:project";
+// Même origine que la version stable (juste un sous-dossier) : une clé
+// distincte évite que les expérimentations de la bêta n'écrasent ou ne
+// corrompent le projet enregistré côté stable, et inversement.
+const STORAGE_KEY = location.pathname.includes("/beta/") ? "elec-aiti:project:beta" : "elec-aiti:project";
 const MAX_HISTORY = 50;
 
 function seedFloors() {
