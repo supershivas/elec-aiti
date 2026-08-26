@@ -107,6 +107,18 @@ export class Palette {
       const use = document.createElementNS(SVG_NS, "use");
       use.setAttribute("href", `#sym-${entry.symbolId}`);
       svg.appendChild(use);
+
+      // Prises spécialisées : même abréviation centrée que sur le plan (voir
+      // ComponentsLayer.renderComponent), pour reconnaître le type dans la liste.
+      if (entry.abbr) {
+        const text = document.createElementNS(SVG_NS, "text");
+        text.textContent = entry.abbr;
+        text.setAttribute("x", 12);
+        text.setAttribute("y", 12.5);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "central");
+        svg.appendChild(text);
+      }
     }
     return svg;
   }
