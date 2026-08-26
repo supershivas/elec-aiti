@@ -10,6 +10,11 @@ const BOX_HITBOX_PADDING = 4;
 const CLICK_THRESHOLD_PX = 6;
 const RESIZE_HANDLE_SIZE = 10;
 const MIN_SIZE_CM = 10;
+// Postes d'un appareillage groupé (interrupteur double/triple...) : chaque
+// poste répète le même pictogramme, plus petit et rapproché, plutôt qu'un
+// symbole dédié par variante (voir catalog/components.js, entry.gangable).
+const GANG_ICON_SIZE = 22;
+const GANG_SPACING = 26;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -99,14 +104,17 @@ export class ComponentsLayer {
 
     const width = component.width ?? entry.width ?? DEFAULT_SYMBOL_SIZE;
     const height = component.height ?? entry.height ?? DEFAULT_SYMBOL_SIZE;
+    const gang = entry.gangable ? Math.min(entry.gangMax ?? 4, Math.max(1, component.gang ?? 1)) : 1;
+    const gangWidth = gang > 1 ? (gang - 1) * GANG_SPACING + GANG_ICON_SIZE : width;
+    const gangHeight = gang > 1 ? GANG_ICON_SIZE : height;
 
     // Zone de clic invisible. Pour les éléments à emprise réelle (meubles,
     // électroménager, porte...), elle colle à la forme même (rectangulaire,
     // pas un carré qui déborderait) ; pour les petits symboles (prises,
     // interrupteurs...), une marge modeste compense leur trait fin.
     const isRealFootprint = entry.shape === "box" || entry.shape === "door";
-    const hitboxWidth = isRealFootprint ? width + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
-    const hitboxHeight = isRealFootprint ? height + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
+    const hitboxWidth = isRealFootprint ? width + BOX_HITBOX_PADDING : Math.max(gangWidth, gangHeight) + SYMBOL_HITBOX_PADDING;
+    const hitboxHeight = isRealFootprint ? height + BOX_HITBOX_PADDING : Math.max(gangWidth, gangHeight) + SYMBOL_HITBOX_PADDING;
     const hitbox = document.createElementNS(SVG_NS, "rect");
     hitbox.setAttribute("x", -hitboxWidth / 2);
     hitbox.setAttribute("y", -hitboxHeight / 2);
@@ -159,6 +167,21 @@ export class ComponentsLayer {
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
       group.appendChild(text);
+    } else if (gang > 1) {
+      // Appareillage à plusieurs postes : le même pictogramme répété, plus
+      // petit et rapproché, plutôt qu'un symbole dédié par variante.
+      const span = (gang - 1) * GANG_SPACING;
+      for (let i = 0; i < gang; i++) {
+        const cx = -span / 2 + i * GANG_SPACING;
+        const use = document.createElementNS(SVG_NS, "use");
+        use.setAttribute("href", `#sym-${entry.symbolId}`);
+        use.setAttribute("x", cx - GANG_ICON_SIZE / 2);
+        use.setAttribute("y", -GANG_ICON_SIZE / 2);
+        use.setAttribute("width", GANG_ICON_SIZE);
+        use.setAttribute("height", GANG_ICON_SIZE);
+        use.classList.add("component__shape");
+        group.appendChild(use);
+      }
     } else {
       const use = document.createElementNS(SVG_NS, "use");
       use.setAttribute("href", `#sym-${entry.symbolId}`);

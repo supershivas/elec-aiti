@@ -39,7 +39,9 @@ Component {
   floorId: string,      // 'rdc', '1er-etage'
   x: number, y: number, // coordonnées dans le repère du viewBox du plan (1558 x 801.32)
   rotation: number,     // degrés
-  label?: string        // nom personnalisé (ex: "Prise cuisine plan de travail")
+  label?: string,       // nom personnalisé (ex: "Prise cuisine plan de travail")
+  gang?: number         // nombre de postes (interrupteur double/triple...), catalog.gangable
+                         // uniquement ; répète le pictogramme au lieu d'un type par variante
 }
 
 // Une liaison = un fil entre deux extrémités (composant ou nœud intermédiaire)

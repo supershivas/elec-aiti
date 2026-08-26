@@ -84,6 +84,26 @@ export class PropertiesPanel {
       this.containerEl.appendChild(field("Type", typeSelect));
     }
 
+    // Appareillage à plusieurs postes (interrupteur double, triple...) : un
+    // seul type de catalogue, le nombre de postes se règle ici plutôt que de
+    // multiplier les entrées "Interrupteur double", "Interrupteur triple"...
+    if (entry.gangable) {
+      const gangSelect = document.createElement("select");
+      const gangLabels = ["Simple", "Double", "Triple", "Quadruple", "Quintuple", "Sextuple"];
+      for (let n = 1; n <= (entry.gangMax ?? 4); n++) {
+        const option = document.createElement("option");
+        option.value = String(n);
+        option.textContent = gangLabels[n - 1] ?? `${n} postes`;
+        if ((component.gang ?? 1) === n) option.selected = true;
+        gangSelect.appendChild(option);
+      }
+      gangSelect.addEventListener("change", () => {
+        this.store.snapshot();
+        this.store.updateComponent(component.id, { gang: Number(gangSelect.value) });
+      });
+      this.containerEl.appendChild(field("Nombre de postes", gangSelect));
+    }
+
     const labelInput = document.createElement("input");
     labelInput.type = "text";
     labelInput.value = component.label || "";
