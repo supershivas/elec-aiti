@@ -192,15 +192,17 @@ export class ComponentsLayer {
       use.classList.add("component__shape");
       group.appendChild(use);
 
-      // Prises spécialisées : le symbole reste un pictogramme de prise standard,
-      // l'abréviation identifie juste le circuit dédié (four, plaque, ...)
+      // Prises spécialisées : le symbole reste un pictogramme de prise standard
+      // (sans broches, voir sym-prise-specialisee), l'abréviation au centre du
+      // cercle identifie le circuit dédié (four, plaque, ...).
       if (entry.abbr) {
         const badge = document.createElementNS(SVG_NS, "text");
         badge.textContent = entry.abbr;
         badge.classList.add("component__badge");
-        badge.setAttribute("x", width / 2 - 1);
-        badge.setAttribute("y", -height / 2 + 6);
-        badge.setAttribute("text-anchor", "end");
+        badge.setAttribute("x", 0);
+        badge.setAttribute("y", 0.5);
+        badge.setAttribute("text-anchor", "middle");
+        badge.setAttribute("dominant-baseline", "central");
         group.appendChild(badge);
       }
     }

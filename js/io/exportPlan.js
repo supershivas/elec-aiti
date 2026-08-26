@@ -60,6 +60,18 @@ function buildLegendIcon(entry) {
     use.setAttribute("stroke-linecap", "round");
     use.setAttribute("stroke-linejoin", "round");
     group.appendChild(use);
+
+    // Prises spécialisées : même abréviation centrée que sur le plan (voir
+    // ComponentsLayer.renderComponent), pour une légende cohérente.
+    if (entry.abbr) {
+      const text = document.createElementNS(SVG_NS, "text");
+      text.textContent = entry.abbr;
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "central");
+      text.setAttribute("fill", "currentColor");
+      text.setAttribute("font", "600 8px sans-serif");
+      group.appendChild(text);
+    }
   }
   return group;
 }
