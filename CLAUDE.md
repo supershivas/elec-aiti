@@ -215,7 +215,8 @@ Liaison {
 
 ## Catalogue de composants initial (v1)
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/
-lave-vaisselle/convecteur pour les circuits dédiés), points lumineux (plafonnier, applique, spot),
+lave-vaisselle/convecteur/chauffe-eau/sèche-serviette pour les circuits dédiés), points
+lumineux (plafonnier, applique, spot),
 interrupteur simple, va-et-vient, poussoir, variateur, tableau électrique,
 électroménager (four, plaque, lave-linge, lave-vaisselle, chauffe-eau/cumulus, convecteur
 électrique, sèche-serviette, réfrigérateur), VMC, sanitaire (toilettes, lavabo — pas

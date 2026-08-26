@@ -16,6 +16,8 @@ export const catalog = [
   { type: "prise_specialisee_lave_linge", label: "Prise spécialisée lave-linge", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LL", width: 24, height: 24 },
   { type: "prise_specialisee_lave_vaisselle", label: "Prise spécialisée lave-vaisselle", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "LV", width: 24, height: 24 },
   { type: "prise_specialisee_convecteur", label: "Prise spécialisée convecteur", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "CV", width: 24, height: 24 },
+  { type: "prise_specialisee_chauffe_eau", label: "Prise spécialisée chauffe-eau", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "CE", width: 24, height: 24 },
+  { type: "prise_specialisee_seche_serviette", label: "Prise spécialisée sèche-serviette", category: "Prises", shape: "symbol", symbolId: "prise-specialisee", abbr: "SS", width: 24, height: 24 },
 
   { type: "point_lumineux", label: "Plafonnier", category: "Éclairage", shape: "symbol", symbolId: "plafonnier" },
   { type: "point_lumineux_applique", label: "Applique murale", category: "Éclairage", shape: "symbol", symbolId: "applique" },
