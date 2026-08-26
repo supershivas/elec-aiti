@@ -173,9 +173,12 @@ function buildExportSvgString(stage, floor, store) {
     .querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit, .wall__vertex-marker, .opening__hit, .room__vertex-handle")
     .forEach((el) => el.remove());
 
+  // Légende réservée aux éléments électriques : ni les repères non électrifiés
+  // (porte, cloison, sanitaire), ni le meuble personnalisé (électrifié ou non,
+  // ce n'est pas un composant électrique du catalogue à proprement parler).
   const usedEntries = [...new Set(store.getComponentsForFloor(floor.id).map((c) => c.type))]
     .map((type) => getCatalogEntry(type))
-    .filter(Boolean);
+    .filter((entry) => entry && entry.electrical !== false && entry.electrical !== "optional");
 
   let totalHeight = height;
   if (usedEntries.length > 0) {

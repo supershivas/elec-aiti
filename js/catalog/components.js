@@ -44,8 +44,8 @@ export const catalog = [
   { type: "vmc", label: "VMC", category: "Électroménager", shape: "symbol", symbolId: "vmc" },
 
   // Pas électriques, mais utiles comme repères sur le plan (encombrement réel)
-  { type: "sanitaire_wc", label: "Toilettes (WC)", category: "Sanitaire", shape: "box", abbr: "WC", width: 40, height: 60 },
-  { type: "sanitaire_lavabo", label: "Lavabo", category: "Sanitaire", shape: "box", abbr: "LB", width: 55, height: 45 },
+  { type: "sanitaire_wc", label: "Toilettes (WC)", category: "Sanitaire", shape: "box", abbr: "WC", electrical: false, width: 40, height: 60 },
+  { type: "sanitaire_lavabo", label: "Lavabo", category: "Sanitaire", shape: "box", abbr: "LB", electrical: false, width: 55, height: 45 },
 
   // Rectangle libre : taille et nom demandés à la pose (voir ComponentsLayer.placeComponent).
   // "electrical: optional" -> case à cocher "Électrifié" dans la modale, par défaut non.
