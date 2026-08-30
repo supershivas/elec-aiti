@@ -8,99 +8,44 @@ const HIT_STROKE_WIDTH = 14;
 const GAP_PADDING = 4;
 
 // Rayon approximatif de l'emprise visuelle OPAQUE d'un composant (voir
-// ComponentsLayer.renderComponent), pour savoir sur quelle portion une
-// liaison qui le traverse doit s'effacer (voir buildVisibleSegments). Une
-// porte (shape "door") n'a pas de fond rempli (juste le vantail + l'arc en
-// traits, voir .component__door-line/-arc) : rien à cacher dessous, donc pas
-// de rayon malgré son emprise déclarée (80x80) — sinon une porte simplement
-// posée sur le chemin d'une liaison lui ouvre un vide bien trop grand,
-// jusqu'à donner l'impression qu'elle n'atteint jamais sa cible.
+// ComponentsLayer.renderComponent), pour reculer une extrémité de liaison
+// jusqu'à son bord plutôt que son centre (voir lineEndpoints) : sans ça, la
+// portion sous une grande forme opaque (électroménager, tableau...)
+// disparaît visuellement dessous, donnant l'impression que le fil n'atteint
+// pas le composant au lieu de s'y raccorder.
 function componentGapRadius(component) {
   const entry = getCatalogEntry(component.type);
-  if (entry?.shape === "door") return 0;
   const width = component.width ?? entry?.width ?? DEFAULT_SYMBOL_SIZE;
   const height = component.height ?? entry?.height ?? DEFAULT_SYMBOL_SIZE;
   return Math.max(width, height) / 2 + GAP_PADDING;
 }
 
-// Intersection d'un segment [x1,y1]-[x2,y2] avec le cercle (cx,cy,r) : renvoie
-// l'intervalle [t1,t2] (paramètre du segment, 0=départ, 1=arrivée) où le
-// segment est à l'intérieur du cercle, ou null s'il n'y entre pas.
-function segmentCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const fx = x1 - cx;
-  const fy = y1 - cy;
-  const a = dx * dx + dy * dy;
-  if (a === 0) return null;
-  const b = 2 * (fx * dx + fy * dy);
-  const c = fx * fx + fy * fy - r * r;
-  const discriminant = b * b - 4 * a * c;
-  if (discriminant < 0) return null;
-  const sqrtD = Math.sqrt(discriminant);
-  let t1 = Math.max(0, Math.min(1, (-b - sqrtD) / (2 * a)));
-  let t2 = Math.max(0, Math.min(1, (-b + sqrtD) / (2 * a)));
-  if (t1 >= t2) return null;
-  return [t1, t2];
-}
-
-// Portions [t1,t2] de la ligne (voir renderLiaison), chacune taguée
-// crossing:true/false :
-// - reculées à chaque extrémité jusqu'au bord de son propre composant plutôt
-//   que son centre (sans ça, la portion sous une grande forme opaque comme un
-//   électroménager ou un tableau disparaît visuellement dessous, donnant
-//   l'impression que le fil n'atteint pas le composant au lieu de s'y
-//   raccorder) ;
-// - restent dessinées là où elles traversent un composant tiers (pas ses
-//   deux extrémités), mais crossing:true : la portion passe alors "par
-//   dessus" ce composant (rendue dans LinksLayer.overlayLayerEl, au-dessus du
-//   calque des composants) avec un style plus discret plutôt que d'être
-//   effacée — sinon une liaison qui traverse un gros composant sur une bonne
-//   partie de son tracé (ex: électroménager entre les deux extrémités)
-//   semble juste s'arrêter en route, illisible.
-function buildLineSegments(from, to, otherComponents) {
+// Point de départ/arrivée du trait visible : reculé jusqu'au bord du
+// composant plutôt que son centre exact (voir componentGapRadius). Toujours
+// un seul trait plein et continu entre les deux — aucun vide ni pointillé
+// sur le trajet, même s'il traverse un autre composant en chemin (rendu dans
+// LinksLayer.overlayLayerEl, au-dessus du calque des composants, pour ne
+// jamais être caché dessous).
+function lineEndpoints(from, to) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const totalLength = Math.hypot(dx, dy);
+  if (totalLength === 0) return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
 
-  let tStart = 0;
-  let tEnd = 1;
-  if (totalLength > 0) {
-    tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
-    tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
-    // Composants trop proches/superposés pour reculer sans inverser le
-    // segment : on garde le trait complet plutôt que de le faire disparaître.
-    if (tStart >= tEnd) {
-      tStart = 0;
-      tEnd = 1;
-    }
+  let tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
+  let tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
+  // Composants trop proches/superposés pour reculer sans inverser le
+  // segment : on garde le trait complet plutôt que de le faire disparaître.
+  if (tStart >= tEnd) {
+    tStart = 0;
+    tEnd = 1;
   }
-
-  let crossings = [];
-  for (const component of otherComponents) {
-    const range = segmentCircleIntersection(from.x, from.y, to.x, to.y, component.x, component.y, componentGapRadius(component));
-    if (range) crossings.push([Math.max(range[0], tStart), Math.min(range[1], tEnd)]);
-  }
-  crossings = crossings.filter(([start, end]) => end - start > 0.001);
-  if (crossings.length === 0) return [{ t1: tStart, t2: tEnd, crossing: false }];
-
-  crossings.sort((a, b) => a[0] - b[0]);
-  const merged = [crossings[0]];
-  for (const [start, end] of crossings.slice(1)) {
-    const last = merged[merged.length - 1];
-    if (start <= last[1]) last[1] = Math.max(last[1], end);
-    else merged.push([start, end]);
-  }
-
-  const segments = [];
-  let cursor = tStart;
-  for (const [start, end] of merged) {
-    if (start - cursor > 0.001) segments.push({ t1: cursor, t2: start, crossing: false });
-    segments.push({ t1: start, t2: end, crossing: true });
-    cursor = end;
-  }
-  if (tEnd - cursor > 0.001) segments.push({ t1: cursor, t2: tEnd, crossing: false });
-  return segments;
+  return {
+    x1: from.x + tStart * dx,
+    y1: from.y + tStart * dy,
+    x2: from.x + tEnd * dx,
+    y2: from.y + tEnd * dy,
+  };
 }
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
@@ -137,9 +82,8 @@ export class LinksLayer {
     this.layerEl = layerEl;
     // Calque séparé, situé APRÈS #components-layer dans le SVG hôte : la
     // portion d'une liaison qui traverse un composant tiers y est dupliquée
-    // pour rester visible par-dessus lui (voir buildLineSegments), plutôt que
-    // d'être cachée dessous comme le reste du trait (#links-layer, avant
-    // #components-layer).
+    // pour toujours rester visible par-dessus les composants (#components-layer
+    // est avant, donc en dessous, dans le SVG hôte).
     this.overlayLayerEl = overlayLayerEl;
     this.stage = stage;
     this.store = store;
@@ -172,12 +116,11 @@ export class LinksLayer {
       const from = findComponent(liaison.fromComponentId);
       const to = findComponent(liaison.toComponentId);
       if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
-      const others = components.filter((c) => c.id !== from.id && c.id !== to.id);
-      this.renderLiaison(liaison, from, to, others);
+      this.renderLiaison(liaison, from, to);
     }
   }
 
-  renderLiaison(liaison, from, to, otherComponents) {
+  renderLiaison(liaison, from, to) {
     const linkType = getLinkType(liaison.type);
     const color = this.resolveColor(linkType);
     const stateClasses = [];
@@ -202,32 +145,25 @@ export class LinksLayer {
     hit.setAttribute("stroke-width", HIT_STROKE_WIDTH);
     group.appendChild(hit);
 
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    let overlayGroup = null;
-    for (const { t1, t2, crossing } of buildLineSegments(from, to, otherComponents)) {
-      const line = document.createElementNS(SVG_NS, "line");
-      line.setAttribute("x1", from.x + t1 * dx);
-      line.setAttribute("y1", from.y + t1 * dy);
-      line.setAttribute("x2", from.x + t2 * dx);
-      line.setAttribute("y2", from.y + t2 * dy);
-      line.classList.add("liaison__line");
-      if (!crossing) {
-        group.appendChild(line);
-        continue;
-      }
-      // Portion qui traverse un composant tiers : dupliquée dans le calque
-      // au-dessus des composants, avec un style plus discret (voir CSS), pour
-      // qu'elle reste lisible plutôt que cachée dessous.
-      line.classList.add("liaison__line--crossing");
-      if (!overlayGroup && this.overlayLayerEl) {
-        overlayGroup = document.createElementNS(SVG_NS, "g");
-        overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
-        overlayGroup.style.setProperty("--liaison-color", color);
-        overlayGroup.style.pointerEvents = "none";
-        this.overlayLayerEl.appendChild(overlayGroup);
-      }
-      overlayGroup?.appendChild(line);
+    // Trait plein et continu, sans vide ni pointillé, rendu dans le calque
+    // au-dessus des composants (jamais caché dessous, même sur un composant
+    // traversé en chemin) ; repli sur #links-layer si ce calque est absent.
+    const { x1, y1, x2, y2 } = lineEndpoints(from, to);
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", x1);
+    line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2);
+    line.setAttribute("y2", y2);
+    line.classList.add("liaison__line");
+    if (this.overlayLayerEl) {
+      const overlayGroup = document.createElementNS(SVG_NS, "g");
+      overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
+      overlayGroup.style.setProperty("--liaison-color", color);
+      overlayGroup.style.pointerEvents = "none";
+      overlayGroup.appendChild(line);
+      this.overlayLayerEl.appendChild(overlayGroup);
+    } else {
+      group.appendChild(line);
     }
 
     const title = document.createElementNS(SVG_NS, "title");
