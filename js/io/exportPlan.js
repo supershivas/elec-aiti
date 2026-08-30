@@ -9,9 +9,13 @@ import { getNotedItems } from "../editor/notesRegistry.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+// Même pile de polices que --font-family (design-tokens.css) : la légende et
+// les notes doivent avoir exactement le même rendu typographique que le
+// reste de l'appli, pas une police générique approximative.
+const FONT_FAMILY = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const LEGEND_ICON_SIZE = 20;
 const LEGEND_ROW_HEIGHT = 24;
-const LEGEND_COL_WIDTH = 200;
+const LEGEND_COL_WIDTH = 190;
 const LEGEND_TOP_PADDING = 30;
 const LEGEND_CATEGORY_HEADING_HEIGHT = 16;
 const LEGEND_CATEGORY_GAP = 14;
@@ -19,21 +23,53 @@ const NOTE_MARKER_RADIUS = 6;
 const NOTE_ROW_HEIGHT = 16;
 const NOTES_TOP_PADDING = 28;
 
+// Le raccourci d'attribut "font" (ex: "700 20px sans-serif") n'est pas fiable
+// en SVG : certains navigateurs l'ignorent silencieusement et retombent sur
+// la police serif par défaut. On pose donc les attributs individuellement
+// (font-family/font-size/font-weight), comme le fait déjà le <style> partagé
+// avec le plan (voir .component__label et consorts).
+function setFont(el, weight, size) {
+  el.setAttribute("font-family", FONT_FAMILY);
+  el.setAttribute("font-size", size);
+  el.setAttribute("font-weight", weight);
+}
+
+// Réutilise exactement les mêmes classes que ComponentsLayer.renderComponent
+// (.component__shape, .component__label, .component__badge, .component__door-line,
+// .component__door-arc — voir le <style> injecté dans buildExportSvgString) : la
+// légende doit avoir un rendu identique au plan (même police, même taille de
+// texte, même couleur), seule la taille du pictogramme est réduite pour rester
+// compacte.
 function buildLegendIcon(entry) {
   const group = document.createElementNS(SVG_NS, "g");
-  group.setAttribute("color", "#dc2626");
+  group.classList.add("component");
 
   if (entry.shape === "door") {
     const half = LEGEND_ICON_SIZE / 2;
-    const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute(
-      "d",
-      `M ${-half} ${-half} L ${-half} ${half} L ${half} ${-half} M ${-half} ${half} A ${LEGEND_ICON_SIZE} ${LEGEND_ICON_SIZE} 0 0 1 ${half} ${-half}`,
-    );
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", "currentColor");
-    path.setAttribute("stroke-width", "1.5");
-    group.appendChild(path);
+    const hinge = { x: -half, y: half };
+    const leafTip = { x: -half, y: -half };
+    const otherJamb = { x: half, y: half };
+
+    const openingLine = document.createElementNS(SVG_NS, "line");
+    openingLine.setAttribute("x1", hinge.x);
+    openingLine.setAttribute("y1", hinge.y);
+    openingLine.setAttribute("x2", otherJamb.x);
+    openingLine.setAttribute("y2", otherJamb.y);
+    openingLine.classList.add("component__door-line");
+    group.appendChild(openingLine);
+
+    const leafLine = document.createElementNS(SVG_NS, "line");
+    leafLine.setAttribute("x1", hinge.x);
+    leafLine.setAttribute("y1", hinge.y);
+    leafLine.setAttribute("x2", leafTip.x);
+    leafLine.setAttribute("y2", leafTip.y);
+    leafLine.classList.add("component__door-line");
+    group.appendChild(leafLine);
+
+    const arc = document.createElementNS(SVG_NS, "path");
+    arc.setAttribute("d", `M ${leafTip.x} ${leafTip.y} A ${LEGEND_ICON_SIZE} ${LEGEND_ICON_SIZE} 0 0 1 ${otherJamb.x} ${otherJamb.y}`);
+    arc.classList.add("component__door-arc");
+    group.appendChild(arc);
   } else if (entry.shape === "box") {
     const rect = document.createElementNS(SVG_NS, "rect");
     rect.setAttribute("x", -LEGEND_ICON_SIZE / 2);
@@ -41,17 +77,14 @@ function buildLegendIcon(entry) {
     rect.setAttribute("width", LEGEND_ICON_SIZE);
     rect.setAttribute("height", LEGEND_ICON_SIZE);
     rect.setAttribute("rx", 2);
-    rect.setAttribute("fill", "#ffffff");
-    rect.setAttribute("stroke", "currentColor");
-    rect.setAttribute("stroke-width", "2");
+    rect.classList.add("component__shape");
     group.appendChild(rect);
     if (entry.abbr) {
       const text = document.createElementNS(SVG_NS, "text");
       text.textContent = entry.abbr;
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
-      text.setAttribute("fill", "currentColor");
-      text.setAttribute("font", "600 9px sans-serif");
+      text.classList.add("component__label");
       group.appendChild(text);
     }
   } else {
@@ -61,11 +94,7 @@ function buildLegendIcon(entry) {
     use.setAttribute("y", -LEGEND_ICON_SIZE / 2);
     use.setAttribute("width", LEGEND_ICON_SIZE);
     use.setAttribute("height", LEGEND_ICON_SIZE);
-    use.setAttribute("fill", "#ffffff");
-    use.setAttribute("stroke", "currentColor");
-    use.setAttribute("stroke-width", "2");
-    use.setAttribute("stroke-linecap", "round");
-    use.setAttribute("stroke-linejoin", "round");
+    use.classList.add("component__shape");
     group.appendChild(use);
 
     // Prises spécialisées : même abréviation centrée que sur le plan (voir
@@ -75,8 +104,8 @@ function buildLegendIcon(entry) {
       text.textContent = entry.abbr;
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
-      text.setAttribute("fill", "currentColor");
-      text.setAttribute("font", "600 8px sans-serif");
+      text.setAttribute("y", 0.5);
+      text.classList.add("component__badge");
       group.appendChild(text);
     }
   }
@@ -98,11 +127,20 @@ function buildLinkTypeLegendIcon(color) {
   return line;
 }
 
+// Hauteur qu'occuperait un bloc de catégorie (titre + ses items en colonne),
+// pour répartir les catégories entre les colonnes de la légende (voir
+// buildLegendGroup) avant de les dessiner.
+function categoryBlockHeight(items) {
+  return LEGEND_CATEGORY_HEADING_HEIGHT + items.length * LEGEND_ROW_HEIGHT + LEGEND_CATEGORY_GAP;
+}
+
 // Légende des seuls types de composants réellement posés et types de
 // liaisons réellement tracées sur l'étage exporté (pas tout le catalogue),
 // organisée par catégorie (sous-titres façon .palette__category-title :
-// petite majuscule, espacée, en gris discret) avec une mini-grille par
-// catégorie, pour rester lisible même avec beaucoup de types différents.
+// petite majuscule, espacée, en gris discret), chaque catégorie restant un
+// bloc compact (un item par ligne) ; les blocs sont répartis sur plusieurs
+// colonnes quand la largeur disponible le permet, pour profiter de la place
+// libérée par la mise en page compacte plutôt que de s'étirer verticalement.
 function buildLegendGroup(categories, originX, originY, width, mutedColor) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
@@ -114,46 +152,58 @@ function buildLegendGroup(categories, originX, originY, width, mutedColor) {
   title.setAttribute("x", 0);
   title.setAttribute("y", 20);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 20px sans-serif");
+  setFont(title, 700, 20);
   group.appendChild(title);
 
-  const columns = Math.max(1, Math.floor(width / LEGEND_COL_WIDTH));
-  let cursorY = LEGEND_TOP_PADDING + 10;
+  const columnCount = Math.max(1, Math.min(3, Math.floor(width / LEGEND_COL_WIDTH)));
+  const columnWidth = width / columnCount;
 
-  categories.forEach(({ category, items }) => {
-    const heading = document.createElementNS(SVG_NS, "text");
-    heading.textContent = category.toUpperCase();
-    heading.setAttribute("x", 0);
-    heading.setAttribute("y", cursorY);
-    heading.setAttribute("fill", mutedColor);
-    heading.setAttribute("font", "700 9px sans-serif");
-    heading.setAttribute("letter-spacing", "0.06em");
-    group.appendChild(heading);
-    cursorY += LEGEND_CATEGORY_HEADING_HEIGHT;
+  // Répartition gloutonne : chaque catégorie va dans la colonne la moins
+  // remplie jusqu'ici, pour équilibrer la hauteur des colonnes plutôt que de
+  // les remplir dans l'ordre (qui laisserait la dernière colonne à moitié vide).
+  const columns = Array.from({ length: columnCount }, () => ({ categories: [], height: 0 }));
+  for (const cat of categories) {
+    const target = columns.reduce((min, col) => (col.height < min.height ? col : min), columns[0]);
+    target.categories.push(cat);
+    target.height += categoryBlockHeight(cat.items);
+  }
 
-    items.forEach(({ label: itemLabel, icon }, i) => {
-      const col = i % columns;
-      const row = Math.floor(i / columns);
-      const itemX = col * LEGEND_COL_WIDTH;
-      const itemY = cursorY + row * LEGEND_ROW_HEIGHT;
+  const top = LEGEND_TOP_PADDING + 10;
+  let maxColumnHeight = 0;
+  columns.forEach((col, colIndex) => {
+    let cursorY = top;
+    for (const { category, items } of col.categories) {
+      const heading = document.createElementNS(SVG_NS, "text");
+      heading.textContent = category.toUpperCase();
+      heading.setAttribute("x", colIndex * columnWidth);
+      heading.setAttribute("y", cursorY);
+      heading.setAttribute("fill", mutedColor);
+      setFont(heading, 700, 9);
+      heading.setAttribute("letter-spacing", "0.06em");
+      group.appendChild(heading);
+      cursorY += LEGEND_CATEGORY_HEADING_HEIGHT;
 
-      icon.setAttribute("transform", `translate(${itemX + LEGEND_ICON_SIZE / 2}, ${itemY - LEGEND_ICON_SIZE / 2 + 8})`);
-      group.appendChild(icon);
+      items.forEach(({ label: itemLabel, icon }, i) => {
+        const itemY = cursorY + i * LEGEND_ROW_HEIGHT;
 
-      const label = document.createElementNS(SVG_NS, "text");
-      label.textContent = itemLabel;
-      label.setAttribute("x", itemX + LEGEND_ICON_SIZE + 10);
-      label.setAttribute("y", itemY + 4);
-      label.setAttribute("fill", "#232a30");
-      label.setAttribute("font", "400 10px sans-serif");
-      group.appendChild(label);
-    });
+        icon.setAttribute("transform", `translate(${colIndex * columnWidth + LEGEND_ICON_SIZE / 2}, ${itemY - LEGEND_ICON_SIZE / 2 + 8})`);
+        group.appendChild(icon);
 
-    const rows = Math.ceil(items.length / columns);
-    cursorY += rows * LEGEND_ROW_HEIGHT + LEGEND_CATEGORY_GAP;
+        const label = document.createElementNS(SVG_NS, "text");
+        label.textContent = itemLabel;
+        label.setAttribute("x", colIndex * columnWidth + LEGEND_ICON_SIZE + 10);
+        label.setAttribute("y", itemY + 4);
+        label.setAttribute("fill", "#232a30");
+        setFont(label, 400, 10);
+        group.appendChild(label);
+      });
+
+      cursorY += items.length * LEGEND_ROW_HEIGHT + LEGEND_CATEGORY_GAP;
+    }
+    maxColumnHeight = Math.max(maxColumnHeight, cursorY - top - LEGEND_CATEGORY_GAP);
   });
 
-  const height = cursorY - LEGEND_CATEGORY_GAP;
+  const height = top + maxColumnHeight;
   return { group, height };
 }
 
@@ -173,7 +223,7 @@ function buildFootnoteMarker(number) {
   text.setAttribute("text-anchor", "middle");
   text.setAttribute("dominant-baseline", "central");
   text.setAttribute("fill", "#ffffff");
-  text.setAttribute("font", "700 7px sans-serif");
+  setFont(text, 700, 7);
   group.appendChild(text);
   return group;
 }
@@ -192,7 +242,7 @@ function buildNotesGroup(notedItems, originX, originY, width) {
   title.setAttribute("x", 0);
   title.setAttribute("y", 15);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 15px sans-serif");
+  setFont(title, 700, 15);
   group.appendChild(title);
 
   notedItems.forEach(({ number, label, comment }, i) => {
@@ -206,7 +256,7 @@ function buildNotesGroup(notedItems, originX, originY, width) {
     text.setAttribute("x", NOTE_MARKER_RADIUS * 2 + 6);
     text.setAttribute("y", rowY);
     text.setAttribute("fill", "#232a30");
-    text.setAttribute("font", "400 10px sans-serif");
+    setFont(text, 400, 10);
     group.appendChild(text);
   });
 
@@ -234,21 +284,21 @@ function buildExportSvgString(stage, floor, store) {
   style.textContent = `
     .component { color: ${componentColor}; }
     .component .component__shape { fill: ${bgPanel}; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .component__label { fill: currentColor; font: 600 9px sans-serif; }
-    .component__badge { fill: currentColor; font: 600 6px sans-serif; }
+    .component__label { fill: currentColor; font: 600 9px ${FONT_FAMILY}; }
+    .component__badge { fill: currentColor; font: 600 6px ${FONT_FAMILY}; }
     .component__door-line { stroke: currentColor; stroke-width: 2; fill: none; }
     .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .component-note-marker__circle { fill: ${accentHover}; stroke: ${bgPanel}; stroke-width: 1; }
-    .component-note-marker__text { fill: #fff; font: 700 7px sans-serif; }
-    .component-group__rect { fill: none; stroke: ${textMuted}; stroke-width: 1.5; stroke-dasharray: 4 3; }
-    .component-group__label { fill: ${textMuted}; font: 600 8px sans-serif; text-transform: uppercase; letter-spacing: 0.03em; }
+    .component-note-marker__text { fill: #fff; font: 700 7px ${FONT_FAMILY}; }
+    .component-group__rect { fill: none; stroke: ${componentColor}; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .component-group__label { fill: ${textMuted}; font: 600 8px ${FONT_FAMILY}; text-transform: uppercase; letter-spacing: 0.03em; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
     .wall__shape, .wall__joint { fill: ${planStroke}; stroke: none; }
     .opening__door-line { stroke: ${planStroke}; stroke-width: 2; fill: none; }
     .opening__door-arc { stroke: ${planStroke}; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .opening__window { fill: ${bgPanel}; stroke: ${planStroke}; stroke-width: 1.5; }
     .room__shape { fill: ${roomFill}; stroke: ${borderColor}; stroke-width: 1; }
-    .room__label { fill: ${textMuted}; font: 600 14px sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
+    .room__label { fill: ${textMuted}; font: 600 14px ${FONT_FAMILY}; text-transform: uppercase; letter-spacing: 0.04em; }
   `;
   clone.insertBefore(style, clone.firstChild);
 
@@ -437,15 +487,24 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
     .map(({ floor, url }) => `<div class="page"><img src="${url}" alt="${floor.label}" /></div>`)
     .join("\n");
 
+  // Le nom suggéré par la boîte "Enregistrer en PDF" du navigateur reprend le
+  // <title> de la page : on l'aligne sur le fichier .aiti courant (sans son
+  // extension) pour retrouver le même nom, plutôt qu'un titre générique.
+  const fileName = store.getFileName();
+  const pdfTitle = (fileName ? fileName.replace(/\.aiti$/i, "") : "Éditeur de schémas électriques").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+
   printWindow.document.open();
   printWindow.document.write(`
     <!DOCTYPE html>
     <html lang="fr">
       <head>
         <meta charset="UTF-8" />
-        <title>Éditeur de schémas électriques</title>
+        <title>${pdfTitle}</title>
         <style>
-          @page { size: ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
+          @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
           html, body { margin: 0; padding: 0; }
           img { display: block; width: 100%; height: auto; }
           .page { page-break-after: always; break-after: page; }

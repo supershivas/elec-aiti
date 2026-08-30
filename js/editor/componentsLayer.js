@@ -108,9 +108,12 @@ export class ComponentsLayer {
       if (kindOrOrientation) this.layerEl.appendChild(kindOrOrientation);
       const number = groupNoteNumbers.get(group.id);
       if (number) {
+        // Exactement le coin haut-droit du cadre pointillé (voir
+        // renderGroupRect) : la pastille doit toucher le pointillé, pas
+        // flotter au-dessus.
         const maxX = Math.max(...members.map((c) => c.x));
         const minY = Math.min(...members.map((c) => c.y));
-        this.layerEl.appendChild(this.renderNoteMarker({ x: maxX + GROUP_PADDING, y: minY - GROUP_PADDING, comment: group.comment }, number));
+        this.layerEl.appendChild(this.renderNoteMarker(maxX + GROUP_PADDING, minY - GROUP_PADDING, group.comment, number));
       }
     }
 
@@ -124,7 +127,7 @@ export class ComponentsLayer {
     const noteNumbers = noteNumbersByKind(notedItems, "component");
     for (const component of components) {
       const number = noteNumbers.get(component.id);
-      if (number) this.layerEl.appendChild(this.renderNoteMarker(component, number));
+      if (number) this.layerEl.appendChild(this.renderNoteMarker(component.x + 14, component.y - 14, component.comment, number));
     }
   }
 
@@ -172,13 +175,12 @@ export class ComponentsLayer {
     return text;
   }
 
-  // Rendue hors du groupe (rotatif) du composant, en coordonnées absolues du
-  // plan, pour que la pastille reste toujours droite quel que soit l'angle
-  // du composant.
-  renderNoteMarker(component, number) {
+  // Position absolue (x, y) déjà finale — l'appelant décide de l'offset par
+  // rapport à l'élément commenté (composant ou coin du cadre de groupe).
+  renderNoteMarker(x, y, comment, number) {
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("component-note-marker");
-    group.setAttribute("transform", `translate(${component.x + 14} ${component.y - 14})`);
+    group.setAttribute("transform", `translate(${x} ${y})`);
 
     const circle = document.createElementNS(SVG_NS, "circle");
     circle.setAttribute("r", 6);
@@ -194,7 +196,7 @@ export class ComponentsLayer {
     group.appendChild(text);
 
     const title = document.createElementNS(SVG_NS, "title");
-    title.textContent = `Note ${number} — ${component.comment}`;
+    title.textContent = `Note ${number} — ${comment}`;
     group.appendChild(title);
 
     return group;

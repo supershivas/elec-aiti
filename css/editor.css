@@ -568,7 +568,7 @@
 
 .component-group__rect {
   fill: none;
-  stroke: var(--color-text-muted);
+  stroke: var(--color-component);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
   pointer-events: none;
