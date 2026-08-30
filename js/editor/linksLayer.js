@@ -1,9 +1,72 @@
 import { getLinkType } from "../catalog/linkTypes.js";
 import { getCatalogEntry } from "../catalog/components.js";
+import { DEFAULT_SYMBOL_SIZE } from "./componentsLayer.js";
 import { isEditingText } from "./domUtils.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
+const GAP_PADDING = 4;
+
+// Rayon approximatif de l'emprise visuelle d'un composant (voir
+// ComponentsLayer.renderComponent), pour savoir sur quelle portion une
+// liaison qui le traverse doit s'effacer (voir buildVisibleSegments).
+function componentGapRadius(component) {
+  const entry = getCatalogEntry(component.type);
+  const width = component.width ?? entry?.width ?? DEFAULT_SYMBOL_SIZE;
+  const height = component.height ?? entry?.height ?? DEFAULT_SYMBOL_SIZE;
+  return Math.max(width, height) / 2 + GAP_PADDING;
+}
+
+// Intersection d'un segment [x1,y1]-[x2,y2] avec le cercle (cx,cy,r) : renvoie
+// l'intervalle [t1,t2] (paramètre du segment, 0=départ, 1=arrivée) où le
+// segment est à l'intérieur du cercle, ou null s'il n'y entre pas.
+function segmentCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const fx = x1 - cx;
+  const fy = y1 - cy;
+  const a = dx * dx + dy * dy;
+  if (a === 0) return null;
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - r * r;
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+  const sqrtD = Math.sqrt(discriminant);
+  let t1 = Math.max(0, Math.min(1, (-b - sqrtD) / (2 * a)));
+  let t2 = Math.max(0, Math.min(1, (-b + sqrtD) / (2 * a)));
+  if (t1 >= t2) return null;
+  return [t1, t2];
+}
+
+// Portions [t1,t2] de la ligne (voir renderLiaison) à effacer là où elle
+// traverse un composant tiers (pas ses deux extrémités) : plutôt que de
+// dessiner le trait par-dessus, il "passe derrière" avec un petit vide à cet
+// endroit, pour ne pas cacher/parasiter visuellement le composant traversé.
+function buildVisibleSegments(from, to, otherComponents) {
+  let excluded = [];
+  for (const component of otherComponents) {
+    const range = segmentCircleIntersection(from.x, from.y, to.x, to.y, component.x, component.y, componentGapRadius(component));
+    if (range) excluded.push(range);
+  }
+  if (excluded.length === 0) return [[0, 1]];
+
+  excluded.sort((a, b) => a[0] - b[0]);
+  const merged = [excluded[0]];
+  for (const [start, end] of excluded.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+
+  const visible = [];
+  let cursor = 0;
+  for (const [start, end] of merged) {
+    if (start - cursor > 0.01) visible.push([cursor, start]);
+    cursor = Math.max(cursor, end);
+  }
+  if (1 - cursor > 0.01) visible.push([cursor, 1]);
+  return visible;
+}
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
 // (typiquement un point lumineux), c'est un montage va-et-vient : on bascule
@@ -67,11 +130,12 @@ export class LinksLayer {
       const from = findComponent(liaison.fromComponentId);
       const to = findComponent(liaison.toComponentId);
       if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
-      this.layerEl.appendChild(this.renderLiaison(liaison, from, to));
+      const others = components.filter((c) => c.id !== from.id && c.id !== to.id);
+      this.layerEl.appendChild(this.renderLiaison(liaison, from, to, others));
     }
   }
 
-  renderLiaison(liaison, from, to) {
+  renderLiaison(liaison, from, to, otherComponents) {
     const linkType = getLinkType(liaison.type);
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("liaison");
@@ -94,13 +158,19 @@ export class LinksLayer {
     hit.setAttribute("stroke-width", HIT_STROKE_WIDTH);
     group.appendChild(hit);
 
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", from.x);
-    line.setAttribute("y1", from.y);
-    line.setAttribute("x2", to.x);
-    line.setAttribute("y2", to.y);
-    line.classList.add("liaison__line");
-    group.appendChild(line);
+    // Le trait visible s'efface là où il traverse un composant tiers (pas ses
+    // deux extrémités) plutôt que de passer par-dessus (voir buildVisibleSegments).
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    for (const [t1, t2] of buildVisibleSegments(from, to, otherComponents)) {
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", from.x + t1 * dx);
+      line.setAttribute("y1", from.y + t1 * dy);
+      line.setAttribute("x2", from.x + t2 * dx);
+      line.setAttribute("y2", from.y + t2 * dy);
+      line.classList.add("liaison__line");
+      group.appendChild(line);
+    }
 
     const title = document.createElementNS(SVG_NS, "title");
     title.textContent = liaison.comment ? `${linkType.label}\n${liaison.comment}` : linkType.label;
