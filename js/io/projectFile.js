@@ -21,6 +21,7 @@ export async function exportProjectFile(store) {
       walls: store.state.walls,
       openings: store.state.openings,
       rooms: store.state.rooms,
+      changeLog: store.state.changeLog,
     },
     null,
     2,

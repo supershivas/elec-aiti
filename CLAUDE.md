@@ -61,6 +61,11 @@ Liaison {
 - Sauvegarde : **JSON** (le seul format persistant possible sans backend). Auto-save en
   `localStorage` + export/import du projet complet (tous étages) via le menu Fichier, au
   format `.aiti` (JSON renommé), nommé `circuit-DDMMYYYY.aiti` (pas de compte, pas de sync).
+  Le nom du fichier courant (affiché en bas à droite du plan) et le journal des modifications
+  (`changeLog`, consultable au clic dessus) font partie de ce JSON : ils survivent au
+  rechargement et se retrouvent tels quels en rouvrant le fichier ailleurs. Ni l'un ni l'autre
+  n'est concerné par l'historique d'annulation (Store.snapshot/undo/redo) : ce sont des
+  métadonnées de présentation/journalisation, pas le contenu du plan.
 - Export du schéma : menu Fichier > Exporter en SVG/PNG/PDF, toujours pour tous les étages
   (pas seulement celui affiché) — un fichier par étage pour SVG/PNG, une seule PDF
   multi-pages (une page par étage) pour PDF/impression. Légende générée automatiquement par

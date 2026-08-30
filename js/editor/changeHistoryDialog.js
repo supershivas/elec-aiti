@@ -2,11 +2,12 @@ function formatTime(timestamp) {
   return new Date(timestamp).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-// Boîte de dialogue "Historique" : journal chronologique des actions de la
-// session (voir ChangeHistory), le plus récent en haut.
+// Boîte de dialogue "Historique" : journal chronologique des actions du
+// projet (voir Store.getChangeLog/recordChange, conservé dans le .aiti), le
+// plus récent en haut.
 export class ChangeHistoryDialog {
-  constructor({ history }) {
-    this.history = history;
+  constructor({ store }) {
+    this.store = store;
     this.overlayEl = null;
   }
 
@@ -40,15 +41,16 @@ export class ChangeHistoryDialog {
     body.className = "modal__body";
     modal.appendChild(body);
 
-    if (this.history.entries.length === 0) {
+    const entries = this.store.getChangeLog();
+    if (entries.length === 0) {
       const empty = document.createElement("p");
       empty.className = "properties__empty";
-      empty.textContent = "Aucune modification enregistrée durant cette session.";
+      empty.textContent = "Aucune modification enregistrée pour ce projet.";
       body.appendChild(empty);
     } else {
       const list = document.createElement("ul");
       list.className = "history-list";
-      for (const entry of this.history.entries) {
+      for (const entry of entries) {
         const li = document.createElement("li");
         li.className = "history-list__item";
         if (entry.type === "danger") li.classList.add("history-list__item--danger");

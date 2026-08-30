@@ -11,7 +11,6 @@ import { RoomTool } from "./editor/roomTool.js";
 import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
-import { ChangeHistory } from "./editor/changeHistory.js";
 import { ChangeHistoryDialog } from "./editor/changeHistoryDialog.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
@@ -231,18 +230,18 @@ function describeAction(action) {
   }
 }
 
-const changeHistory = new ChangeHistory();
-const changeHistoryDialog = new ChangeHistoryDialog({ history: changeHistory });
+const changeHistoryDialog = new ChangeHistoryDialog({ store });
 
 store.onAction((action) => {
   const described = describeAction(action);
   if (!described) return;
   showToast(described.message, { type: described.type });
-  changeHistory.record(described.message, described.type);
+  store.recordChange(described.message, described.type);
 });
 
 // Nom du fichier .aiti courant en bas à droite du plan (voir Store.getFileName) :
-// clic -> historique des modifications de la session.
+// clic -> historique des modifications, conservé dans le projet (voir
+// Store.getChangeLog / io/projectFile.js).
 function refreshFileNameLabel() {
   if (!filenameButtonEl) return;
   filenameButtonEl.textContent = store.getFileName() || "Projet non enregistré";

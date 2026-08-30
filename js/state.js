@@ -5,15 +5,20 @@ import { defaultFloors } from "./floors.js";
 // corrompent le projet enregistré côté stable, et inversement.
 const STORAGE_KEY = location.pathname.includes("/beta/") ? "elec-aiti:project:beta" : "elec-aiti:project";
 const MAX_HISTORY = 50;
+const MAX_CHANGE_LOG = 200;
 
 function seedFloors() {
   return defaultFloors.map((floor) => ({ ...floor }));
 }
 
+function defaultState() {
+  return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null, changeLog: [] };
+}
+
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
+    if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     return {
       floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
@@ -23,9 +28,10 @@ function loadFromStorage() {
       openings: Array.isArray(parsed.openings) ? parsed.openings : [],
       rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
       fileName: typeof parsed.fileName === "string" ? parsed.fileName : null,
+      changeLog: Array.isArray(parsed.changeLog) ? parsed.changeLog : [],
     };
   } catch {
-    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
+    return defaultState();
   }
 }
 
@@ -158,6 +164,21 @@ export class Store {
 
   setFileName(fileName) {
     this.state.fileName = fileName ?? null;
+    this.notify();
+  }
+
+  // Journal des modifications, conservé dans le projet (localStorage + .aiti,
+  // voir io/projectFile.js) pour survivre au rechargement et à l'ouverture du
+  // fichier ailleurs. Alimenté depuis main.js à chaque action décrite pour les
+  // toasts (voir Store.onAction). Comme fileName, hors historique d'annulation :
+  // annuler une action ne doit pas effacer sa trace dans le journal.
+  getChangeLog() {
+    return this.state.changeLog;
+  }
+
+  recordChange(message, type) {
+    this.state.changeLog.unshift({ message, type, timestamp: Date.now() });
+    if (this.state.changeLog.length > MAX_CHANGE_LOG) this.state.changeLog.length = MAX_CHANGE_LOG;
     this.notify();
   }
 
@@ -483,14 +504,16 @@ export class Store {
   // arrière en cas de clic accidentel.
   resetProject() {
     this.snapshot();
-    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
+    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null, changeLog: [] };
     this.notify();
     this.emitAction({ type: "project:new" });
   }
 
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
   // seul cran d'annulation. fileName : nom du fichier .aiti ouvert, pour l'affichage
-  // (voir getFileName), pas une donnée du projet lui-même.
+  // (voir getFileName), pas une donnée du projet lui-même. changeLog repris du
+  // fichier ouvert s'il en contient un (continuité de l'historique), vide sinon
+  // (ex: .aiti enregistré avant l'ajout de cette fonctionnalité).
   loadProject(data, fileName = null) {
     this.snapshot();
     this.state = {
@@ -501,6 +524,7 @@ export class Store {
       openings: Array.isArray(data?.openings) ? data.openings : [],
       rooms: Array.isArray(data?.rooms) ? data.rooms : [],
       fileName,
+      changeLog: Array.isArray(data?.changeLog) ? data.changeLog : [],
     };
     this.notify();
     this.emitAction({ type: "project:opened" });
