@@ -38,17 +38,39 @@ function segmentCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
   return [t1, t2];
 }
 
-// Portions [t1,t2] de la ligne (voir renderLiaison) à effacer là où elle
-// traverse un composant tiers (pas ses deux extrémités) : plutôt que de
-// dessiner le trait par-dessus, il "passe derrière" avec un petit vide à cet
-// endroit, pour ne pas cacher/parasiter visuellement le composant traversé.
+// Portions [t1,t2] de la ligne (voir renderLiaison) réellement dessinées :
+// - reculées à chaque extrémité jusqu'au bord de son propre composant plutôt
+//   que son centre (sans ça, la portion sous une grande forme opaque comme un
+//   électroménager ou un tableau disparaît visuellement dessous, donnant
+//   l'impression que le fil n'atteint pas le composant au lieu de s'y
+//   raccorder) ;
+// - effacées là où elles traversent un composant tiers (pas ses deux
+//   extrémités) : plutôt que de dessiner le trait par-dessus, il "passe
+//   derrière" avec un petit vide à cet endroit.
 function buildVisibleSegments(from, to, otherComponents) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const totalLength = Math.hypot(dx, dy);
+
+  let tStart = 0;
+  let tEnd = 1;
+  if (totalLength > 0) {
+    tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
+    tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
+    // Composants trop proches/superposés pour reculer sans inverser le
+    // segment : on garde le trait complet plutôt que de le faire disparaître.
+    if (tStart >= tEnd) {
+      tStart = 0;
+      tEnd = 1;
+    }
+  }
+
   let excluded = [];
   for (const component of otherComponents) {
     const range = segmentCircleIntersection(from.x, from.y, to.x, to.y, component.x, component.y, componentGapRadius(component));
     if (range) excluded.push(range);
   }
-  if (excluded.length === 0) return [[0, 1]];
+  if (excluded.length === 0) return [[tStart, tEnd]];
 
   excluded.sort((a, b) => a[0] - b[0]);
   const merged = [excluded[0]];
@@ -59,12 +81,14 @@ function buildVisibleSegments(from, to, otherComponents) {
   }
 
   const visible = [];
-  let cursor = 0;
+  let cursor = tStart;
   for (const [start, end] of merged) {
-    if (start - cursor > 0.01) visible.push([cursor, start]);
-    cursor = Math.max(cursor, end);
+    const clippedStart = Math.max(start, tStart);
+    const clippedEnd = Math.min(end, tEnd);
+    if (clippedStart - cursor > 0.01) visible.push([cursor, clippedStart]);
+    cursor = Math.max(cursor, clippedEnd);
   }
-  if (1 - cursor > 0.01) visible.push([cursor, 1]);
+  if (tEnd - cursor > 0.01) visible.push([cursor, tEnd]);
   return visible;
 }
 
