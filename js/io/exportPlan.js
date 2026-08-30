@@ -3,16 +3,18 @@
 // étage) pour le PDF/impression. Le PDF passe par la boîte de dialogue
 // d'impression du navigateur ("Enregistrer en PDF"), pour éviter d'ajouter
 // une librairie de génération PDF juste pour ce besoin.
-import { getCatalogEntry } from "../catalog/components.js";
+import { getCatalogEntry, getCategories } from "../catalog/components.js";
 import { getLinkType } from "../catalog/linkTypes.js";
 import { getNotedItems } from "../editor/notesRegistry.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const LEGEND_ICON_SIZE = 32;
-const LEGEND_ROW_HEIGHT = 50;
-const LEGEND_COL_WIDTH = 260;
-const LEGEND_TOP_PADDING = 40;
+const LEGEND_ICON_SIZE = 20;
+const LEGEND_ROW_HEIGHT = 24;
+const LEGEND_COL_WIDTH = 200;
+const LEGEND_TOP_PADDING = 30;
+const LEGEND_CATEGORY_HEADING_HEIGHT = 16;
+const LEGEND_CATEGORY_GAP = 14;
 const NOTE_MARKER_RADIUS = 6;
 const NOTE_ROW_HEIGHT = 16;
 const NOTES_TOP_PADDING = 28;
@@ -98,40 +100,58 @@ function buildLinkTypeLegendIcon(color) {
 
 // Légende des seuls types de composants réellement posés et types de
 // liaisons réellement tracées sur l'étage exporté (pas tout le catalogue),
-// en grille sous le plan.
-function buildLegendGroup(items, originX, originY, width) {
+// organisée par catégorie (sous-titres façon .palette__category-title :
+// petite majuscule, espacée, en gris discret) avec une mini-grille par
+// catégorie, pour rester lisible même avec beaucoup de types différents.
+function buildLegendGroup(categories, originX, originY, width, mutedColor) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
 
   const title = document.createElementNS(SVG_NS, "text");
   title.textContent = "Légende";
   title.setAttribute("x", 0);
-  title.setAttribute("y", 16);
+  title.setAttribute("y", 14);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 16px sans-serif");
+  title.setAttribute("font", "700 13px sans-serif");
   group.appendChild(title);
 
   const columns = Math.max(1, Math.floor(width / LEGEND_COL_WIDTH));
-  items.forEach(({ label: itemLabel, icon }, i) => {
-    const col = i % columns;
-    const row = Math.floor(i / columns);
-    const itemX = col * LEGEND_COL_WIDTH;
-    const itemY = LEGEND_TOP_PADDING + row * LEGEND_ROW_HEIGHT;
+  let cursorY = LEGEND_TOP_PADDING;
 
-    icon.setAttribute("transform", `translate(${itemX + LEGEND_ICON_SIZE / 2}, ${itemY + LEGEND_ICON_SIZE / 2})`);
-    group.appendChild(icon);
+  categories.forEach(({ category, items }) => {
+    const heading = document.createElementNS(SVG_NS, "text");
+    heading.textContent = category.toUpperCase();
+    heading.setAttribute("x", 0);
+    heading.setAttribute("y", cursorY);
+    heading.setAttribute("fill", mutedColor);
+    heading.setAttribute("font", "700 9px sans-serif");
+    heading.setAttribute("letter-spacing", "0.06em");
+    group.appendChild(heading);
+    cursorY += LEGEND_CATEGORY_HEADING_HEIGHT;
 
-    const label = document.createElementNS(SVG_NS, "text");
-    label.textContent = itemLabel;
-    label.setAttribute("x", itemX + LEGEND_ICON_SIZE + 12);
-    label.setAttribute("y", itemY + LEGEND_ICON_SIZE / 2 + 4);
-    label.setAttribute("fill", "#232a30");
-    label.setAttribute("font", "400 12px sans-serif");
-    group.appendChild(label);
+    items.forEach(({ label: itemLabel, icon }, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      const itemX = col * LEGEND_COL_WIDTH;
+      const itemY = cursorY + row * LEGEND_ROW_HEIGHT;
+
+      icon.setAttribute("transform", `translate(${itemX + LEGEND_ICON_SIZE / 2}, ${itemY - LEGEND_ICON_SIZE / 2 + 8})`);
+      group.appendChild(icon);
+
+      const label = document.createElementNS(SVG_NS, "text");
+      label.textContent = itemLabel;
+      label.setAttribute("x", itemX + LEGEND_ICON_SIZE + 10);
+      label.setAttribute("y", itemY + 4);
+      label.setAttribute("fill", "#232a30");
+      label.setAttribute("font", "400 10px sans-serif");
+      group.appendChild(label);
+    });
+
+    const rows = Math.ceil(items.length / columns);
+    cursorY += rows * LEGEND_ROW_HEIGHT + LEGEND_CATEGORY_GAP;
   });
 
-  const rows = Math.ceil(items.length / columns);
-  const height = LEGEND_TOP_PADDING + rows * LEGEND_ROW_HEIGHT;
+  const height = cursorY - LEGEND_CATEGORY_GAP;
   return { group, height };
 }
 
@@ -266,13 +286,23 @@ function buildExportSvgString(stage, floor, store) {
   // pour décoder les couleurs de circuit sans avoir à deviner.
   const usedLinkTypes = [...new Set(store.getLiaisonsForFloor(floor.id).map((l) => l.type))].map(getLinkType).filter(Boolean);
 
-  const legendItems = [
-    ...usedEntries.map((entry) => ({ label: entry.label, icon: buildLegendIcon(entry) })),
-    ...usedLinkTypes.map((linkType) => ({
-      label: linkType.label,
-      icon: buildLinkTypeLegendIcon(root.getPropertyValue(linkType.colorVar).trim()),
-    })),
-  ];
+  // Regroupées par catégorie du catalogue (même ordre que la palette), plus
+  // une catégorie "Liaisons" à la fin pour les types de traits.
+  const legendCategories = getCategories()
+    .map((category) => ({
+      category,
+      items: usedEntries.filter((entry) => entry.category === category).map((entry) => ({ label: entry.label, icon: buildLegendIcon(entry) })),
+    }))
+    .filter(({ items }) => items.length > 0);
+  if (usedLinkTypes.length > 0) {
+    legendCategories.push({
+      category: "Liaisons",
+      items: usedLinkTypes.map((linkType) => ({
+        label: linkType.label,
+        icon: buildLinkTypeLegendIcon(root.getPropertyValue(linkType.colorVar).trim()),
+      })),
+    });
+  }
 
   // Commentaires (composants et liaisons) -> notes numérotées (voir
   // buildNotesGroup) : les pastilles sur le plan lui-même sont déjà dans le
@@ -282,9 +312,9 @@ function buildExportSvgString(stage, floor, store) {
   const notedItems = getNotedItems(store, floor.id);
 
   let cursorY = y + height;
-  if (legendItems.length > 0) {
+  if (legendCategories.length > 0) {
     const legendGap = 24;
-    const { group: legendGroup, height: legendHeight } = buildLegendGroup(legendItems, x, cursorY + legendGap, width);
+    const { group: legendGroup, height: legendHeight } = buildLegendGroup(legendCategories, x, cursorY + legendGap, width, textMuted);
     clone.appendChild(legendGroup);
     cursorY += legendGap + legendHeight;
   }
