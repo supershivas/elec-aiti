@@ -487,6 +487,15 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
     .map(({ floor, url }) => `<div class="page"><img src="${url}" alt="${floor.label}" /></div>`)
     .join("\n");
 
+  // A4 (210x297mm) moins les marges de 10mm de chaque côté : la zone
+  // imprimable réelle. Contraindre chaque page à cette taille exacte (au
+  // lieu d'un simple "width:100%; height:auto" qui laissait l'image déborder
+  // et se faire couper si elle était trop haute, ex. légende volumineuse)
+  // garantit que le plan + légende + notes tiennent toujours entièrement sur
+  // une page, quitte à être un peu réduits.
+  const printableWidthMm = landscape ? 277 : 190;
+  const printableHeightMm = landscape ? 190 : 277;
+
   // Le nom suggéré par la boîte "Enregistrer en PDF" du navigateur reprend le
   // <title> de la page : on l'aligne sur le fichier .aiti courant (sans son
   // extension) pour retrouver le même nom, plutôt qu'un titre générique.
@@ -506,9 +515,18 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
         <style>
           @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
           html, body { margin: 0; padding: 0; }
-          img { display: block; width: 100%; height: auto; }
-          .page { page-break-after: always; break-after: page; }
+          .page {
+            width: ${printableWidthMm}mm;
+            height: ${printableHeightMm}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+          }
           .page:last-child { page-break-after: avoid; break-after: avoid; }
+          img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
         </style>
       </head>
       <body>
