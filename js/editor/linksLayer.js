@@ -7,11 +7,17 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
 const GAP_PADDING = 4;
 
-// Rayon approximatif de l'emprise visuelle d'un composant (voir
+// Rayon approximatif de l'emprise visuelle OPAQUE d'un composant (voir
 // ComponentsLayer.renderComponent), pour savoir sur quelle portion une
-// liaison qui le traverse doit s'effacer (voir buildVisibleSegments).
+// liaison qui le traverse doit s'effacer (voir buildVisibleSegments). Une
+// porte (shape "door") n'a pas de fond rempli (juste le vantail + l'arc en
+// traits, voir .component__door-line/-arc) : rien à cacher dessous, donc pas
+// de rayon malgré son emprise déclarée (80x80) — sinon une porte simplement
+// posée sur le chemin d'une liaison lui ouvre un vide bien trop grand,
+// jusqu'à donner l'impression qu'elle n'atteint jamais sa cible.
 function componentGapRadius(component) {
   const entry = getCatalogEntry(component.type);
+  if (entry?.shape === "door") return 0;
   const width = component.width ?? entry?.width ?? DEFAULT_SYMBOL_SIZE;
   const height = component.height ?? entry?.height ?? DEFAULT_SYMBOL_SIZE;
   return Math.max(width, height) / 2 + GAP_PADDING;
