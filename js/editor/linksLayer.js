@@ -1,52 +1,9 @@
 import { getLinkType } from "../catalog/linkTypes.js";
 import { getCatalogEntry } from "../catalog/components.js";
-import { DEFAULT_SYMBOL_SIZE } from "./componentsLayer.js";
 import { isEditingText } from "./domUtils.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
-const GAP_PADDING = 4;
-
-// Rayon approximatif de l'emprise visuelle OPAQUE d'un composant (voir
-// ComponentsLayer.renderComponent), pour reculer une extrémité de liaison
-// jusqu'à son bord plutôt que son centre (voir lineEndpoints) : sans ça, la
-// portion sous une grande forme opaque (électroménager, tableau...)
-// disparaît visuellement dessous, donnant l'impression que le fil n'atteint
-// pas le composant au lieu de s'y raccorder.
-function componentGapRadius(component) {
-  const entry = getCatalogEntry(component.type);
-  const width = component.width ?? entry?.width ?? DEFAULT_SYMBOL_SIZE;
-  const height = component.height ?? entry?.height ?? DEFAULT_SYMBOL_SIZE;
-  return Math.max(width, height) / 2 + GAP_PADDING;
-}
-
-// Point de départ/arrivée du trait visible : reculé jusqu'au bord du
-// composant plutôt que son centre exact (voir componentGapRadius). Toujours
-// un seul trait plein et continu entre les deux — aucun vide ni pointillé
-// sur le trajet, même s'il traverse un autre composant en chemin (rendu dans
-// LinksLayer.overlayLayerEl, au-dessus du calque des composants, pour ne
-// jamais être caché dessous).
-function lineEndpoints(from, to) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const totalLength = Math.hypot(dx, dy);
-  if (totalLength === 0) return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
-
-  let tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
-  let tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
-  // Composants trop proches/superposés pour reculer sans inverser le
-  // segment : on garde le trait complet plutôt que de le faire disparaître.
-  if (tStart >= tEnd) {
-    tStart = 0;
-    tEnd = 1;
-  }
-  return {
-    x1: from.x + tStart * dx,
-    y1: from.y + tStart * dy,
-    x2: from.x + tEnd * dx,
-    y2: from.y + tEnd * dy,
-  };
-}
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
 // (typiquement un point lumineux), c'est un montage va-et-vient : on bascule
@@ -145,15 +102,15 @@ export class LinksLayer {
     hit.setAttribute("stroke-width", HIT_STROKE_WIDTH);
     group.appendChild(hit);
 
-    // Trait plein et continu, sans vide ni pointillé, rendu dans le calque
+    // Trait plein et continu, centre à centre (touche vraiment ses deux
+    // composants, sans vide ni pointillé sur le trajet), rendu dans le calque
     // au-dessus des composants (jamais caché dessous, même sur un composant
     // traversé en chemin) ; repli sur #links-layer si ce calque est absent.
-    const { x1, y1, x2, y2 } = lineEndpoints(from, to);
     const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", x1);
-    line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2);
-    line.setAttribute("y2", y2);
+    line.setAttribute("x1", from.x);
+    line.setAttribute("y1", from.y);
+    line.setAttribute("x2", to.x);
+    line.setAttribute("y2", to.y);
     line.classList.add("liaison__line");
     if (this.overlayLayerEl) {
       const overlayGroup = document.createElementNS(SVG_NS, "g");
