@@ -11,6 +11,8 @@ import { RoomTool } from "./editor/roomTool.js";
 import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
+import { ChangeHistory } from "./editor/changeHistory.js";
+import { ChangeHistoryDialog } from "./editor/changeHistoryDialog.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
@@ -47,6 +49,7 @@ const importFileInputEl = document.querySelector("#import-file-input");
 const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
 const recenterViewButtonEl = document.querySelector("#btn-recenter-view");
+const filenameButtonEl = document.querySelector("#btn-filename");
 
 for (const linkType of linkTypes) {
   const option = document.createElement("option");
@@ -228,11 +231,23 @@ function describeAction(action) {
   }
 }
 
+const changeHistory = new ChangeHistory();
+const changeHistoryDialog = new ChangeHistoryDialog({ history: changeHistory });
+
 store.onAction((action) => {
   const described = describeAction(action);
   if (!described) return;
   showToast(described.message, { type: described.type });
+  changeHistory.record(described.message, described.type);
 });
+
+// Nom du fichier .aiti courant en bas à droite du plan (voir Store.getFileName) :
+// clic -> historique des modifications de la session.
+function refreshFileNameLabel() {
+  if (!filenameButtonEl) return;
+  filenameButtonEl.textContent = store.getFileName() || "Projet non enregistré";
+}
+filenameButtonEl?.addEventListener("click", () => changeHistoryDialog.open());
 
 // Point d'entrée unique pour changer d'étage affiché (sélecteur, "aller à
 // l'exemplaire lié", création/suppression d'étage) : garde le stage, les
@@ -258,6 +273,7 @@ store.onChange(() => {
   wallsLayer.render();
   roomsLayer.render();
   refreshUndoState();
+  refreshFileNameLabel();
   // Différé : si le changement vient d'un champ du panneau lui-même (évènement
   // "change" en cours), reconstruire son DOM tout de suite fait planter le
   // navigateur ("node no longer a child" pendant le blur de ce même champ).
@@ -404,7 +420,10 @@ menuBar.onAction("#menu-new-project", async () => {
 });
 menuBar.onAction("#menu-save-project", async () => {
   const saved = await exportProjectFile(store);
-  if (saved) showToast("Projet enregistré");
+  if (saved) {
+    store.setFileName(saved);
+    showToast("Projet enregistré");
+  }
 });
 menuBar.onAction("#menu-open-project", () => importFileInputEl.click());
 importFileInputEl.addEventListener("change", async () => {
@@ -509,3 +528,4 @@ recenterViewButtonEl?.addEventListener("click", () => stage.resetView());
 const initialFloor = store.getFloors()[0];
 switchToFloor(initialFloor.id);
 refreshUndoState();
+refreshFileNameLabel();

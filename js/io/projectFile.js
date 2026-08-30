@@ -10,6 +10,8 @@ function formatDateForFilename(date = new Date()) {
   return `${dd}${mm}${yyyy}`;
 }
 
+// Renvoie le nom de fichier effectivement enregistré (pour l'affichage, voir
+// Store.setFileName), ou false si l'utilisateur a annulé.
 export async function exportProjectFile(store) {
   const data = JSON.stringify(
     {
@@ -37,7 +39,7 @@ export async function exportProjectFile(store) {
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return true;
+      return handle.name;
     } catch (error) {
       if (error.name === "AbortError") return false; // annulé par l'utilisateur
       // Sinon (API indisponible pour ce contexte, erreur d'écriture...) on
@@ -51,7 +53,7 @@ export async function exportProjectFile(store) {
   const filename = await promptSaveFilename({ defaultName: suggestedName, extension: ".aiti" });
   if (!filename) return false; // annulé
   downloadBlob(blob, filename);
-  return true;
+  return filename;
 }
 
 export async function importProjectFile(store, file) {
@@ -65,5 +67,5 @@ export async function importProjectFile(store, file) {
   if (!data || typeof data !== "object" || (!("components" in data) && !("liaisons" in data))) {
     throw new Error("Le fichier n'est pas un projet .aiti valide.");
   }
-  store.loadProject(data);
+  store.loadProject(data, file.name);
 }

@@ -13,7 +13,7 @@ function seedFloors() {
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
+    if (!raw) return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
     const parsed = JSON.parse(raw);
     return {
       floors: Array.isArray(parsed.floors) && parsed.floors.length > 0 ? parsed.floors : seedFloors(),
@@ -22,9 +22,10 @@ function loadFromStorage() {
       walls: Array.isArray(parsed.walls) ? parsed.walls : [],
       openings: Array.isArray(parsed.openings) ? parsed.openings : [],
       rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
+      fileName: typeof parsed.fileName === "string" ? parsed.fileName : null,
     };
   } catch {
-    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
+    return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
   }
 }
 
@@ -146,6 +147,18 @@ export class Store {
 
   getFloors() {
     return this.state.floors;
+  }
+
+  // Nom du fichier .aiti courant (affiché en bas à droite du plan) : simple
+  // métadonnée de présentation, pas un champ du modèle floors/components/...,
+  // donc volontairement hors de l'historique d'annulation (snapshot/undo/redo).
+  getFileName() {
+    return this.state.fileName ?? null;
+  }
+
+  setFileName(fileName) {
+    this.state.fileName = fileName ?? null;
+    this.notify();
   }
 
   getFloorById(id) {
@@ -470,14 +483,15 @@ export class Store {
   // arrière en cas de clic accidentel.
   resetProject() {
     this.snapshot();
-    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [] };
+    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null };
     this.notify();
     this.emitAction({ type: "project:new" });
   }
 
   // Remplace tout le projet (import de fichier .aiti) : toutes les étages, en un
-  // seul cran d'annulation.
-  loadProject(data) {
+  // seul cran d'annulation. fileName : nom du fichier .aiti ouvert, pour l'affichage
+  // (voir getFileName), pas une donnée du projet lui-même.
+  loadProject(data, fileName = null) {
     this.snapshot();
     this.state = {
       floors: Array.isArray(data?.floors) && data.floors.length > 0 ? data.floors : seedFloors(),
@@ -486,6 +500,7 @@ export class Store {
       walls: Array.isArray(data?.walls) ? data.walls : [],
       openings: Array.isArray(data?.openings) ? data.openings : [],
       rooms: Array.isArray(data?.rooms) ? data.rooms : [],
+      fileName,
     };
     this.notify();
     this.emitAction({ type: "project:opened" });
