@@ -169,6 +169,7 @@ function buildExportSvgString(stage, floor, store) {
   clone.querySelector("#measure-layer")?.remove();
   clone.querySelector("#wall-preview-layer")?.remove();
   clone.querySelector("#room-preview-layer")?.remove();
+  clone.querySelector("#diff-layer")?.remove();
   clone
     .querySelectorAll(".wall__endpoint-handle, .wall__side-marker, .wall__hit, .wall__vertex-marker, .opening__hit, .room__vertex-handle")
     .forEach((el) => el.remove());

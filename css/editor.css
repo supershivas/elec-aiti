@@ -952,3 +952,87 @@
   border-color: var(--color-accent);
   color: var(--color-text);
 }
+
+.diff-marker {
+  fill: none;
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+
+.diff-marker--added {
+  stroke: var(--color-circuit-prise);
+}
+
+.diff-marker--modified {
+  stroke: var(--color-accent-hover);
+}
+
+.diff-marker--removed {
+  stroke: var(--color-circuit-alimentation);
+  stroke-dasharray: 3 3;
+}
+
+.diff-marker__link {
+  stroke: var(--color-accent-hover);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.diff-ghost {
+  opacity: 0.6;
+  pointer-events: none;
+  color: var(--color-circuit-alimentation);
+}
+
+.diff-ghost rect,
+.diff-ghost use {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.compare-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: #fffbeb;
+  border-bottom: 1px solid var(--color-accent-hover);
+  font-size: var(--font-size-sm);
+}
+
+.compare-banner[hidden] {
+  display: none;
+}
+
+.compare-banner__label {
+  flex: 1;
+}
+
+.compare-banner__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-3);
+}
+
+.compare-banner__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.compare-banner__dot--added {
+  background: var(--color-circuit-prise);
+}
+
+.compare-banner__dot--modified {
+  background: var(--color-accent-hover);
+}
+
+.compare-banner__dot--removed {
+  background: var(--color-circuit-alimentation);
+}

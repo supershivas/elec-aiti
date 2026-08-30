@@ -21,6 +21,8 @@
             <button type="button" class="menubar__action" id="menu-save-project" role="menuitem">Enregistrer le projet (.aiti)</button>
             <button type="button" class="menubar__action" id="menu-open-project" role="menuitem">Ouvrir un projet (.aiti)</button>
             <input type="file" id="import-file-input" accept=".aiti" hidden />
+            <button type="button" class="menubar__action" id="menu-compare-project" role="menuitem">Comparer avec un fichier (.aiti)...</button>
+            <input type="file" id="compare-file-input" accept=".aiti" hidden />
             <hr class="menubar__separator" />
             <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter en SVG (tous les étages)</button>
             <button type="button" class="menubar__action" id="menu-export-png" role="menuitem">Exporter en PNG (tous les étages)</button>
@@ -53,6 +55,13 @@
         </div>
       </nav>
     </header>
+    <div id="compare-banner" class="compare-banner" hidden>
+      <span class="compare-banner__label" id="compare-banner-label"></span>
+      <span class="compare-banner__swatch"><span class="compare-banner__dot compare-banner__dot--added"></span>Ajouté</span>
+      <span class="compare-banner__swatch"><span class="compare-banner__dot compare-banner__dot--modified"></span>Modifié/déplacé</span>
+      <span class="compare-banner__swatch"><span class="compare-banner__dot compare-banner__dot--removed"></span>Supprimé</span>
+      <button type="button" id="btn-compare-exit" class="toolbar__button">Quitter la comparaison</button>
+    </div>
     <div class="workspace">
       <aside id="palette" class="palette" aria-label="Palette de composants"></aside>
       <main class="stage">
@@ -152,6 +161,13 @@
               <line x1="12" y1="8" x2="12" y2="16" />
               <line x1="16" y1="8" x2="16" y2="16" />
             </symbol>
+            <symbol id="sym-terre" viewBox="0 0 24 24">
+              <!-- Symbole normalisé de mise à la terre (CEI 60417-5017). -->
+              <line x1="12" y1="4" x2="12" y2="13" />
+              <line x1="6" y1="13" x2="18" y2="13" />
+              <line x1="8" y1="16" x2="16" y2="16" />
+              <line x1="10" y1="19" x2="14" y2="19" />
+            </symbol>
             <symbol id="sym-vmc" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="8" />
               <path d="M12 12 L12 5 A7 7 0 0 1 18.5 9 Z" fill="currentColor" stroke="none" />
@@ -167,6 +183,7 @@
           <g id="wall-preview-layer"></g>
           <g id="room-preview-layer"></g>
           <g id="measure-layer"></g>
+          <g id="diff-layer"></g>
         </svg>
         <p id="stage-error" class="stage__error" hidden></p>
       </main>

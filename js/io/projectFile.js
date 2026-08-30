@@ -57,7 +57,10 @@ export async function exportProjectFile(store) {
   return filename;
 }
 
-export async function importProjectFile(store, file) {
+// Lit et valide un fichier .aiti sans toucher au Store : utilisé par
+// importProjectFile (remplace le projet) et par l'outil de comparaison de
+// plans (garde le fichier en mémoire à part, pour diff avec le projet ouvert).
+export async function parseProjectFile(file) {
   const text = await file.text();
   let data;
   try {
@@ -68,5 +71,10 @@ export async function importProjectFile(store, file) {
   if (!data || typeof data !== "object" || (!("components" in data) && !("liaisons" in data))) {
     throw new Error("Le fichier n'est pas un projet .aiti valide.");
   }
+  return data;
+}
+
+export async function importProjectFile(store, file) {
+  const data = await parseProjectFile(file);
   store.loadProject(data, file.name);
 }

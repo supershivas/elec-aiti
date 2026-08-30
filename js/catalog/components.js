@@ -32,6 +32,7 @@ export const catalog = [
   { type: "variateur", label: "Variateur", category: "Commandes", shape: "symbol", symbolId: "variateur" },
 
   { type: "tableau_electrique", label: "Tableau électrique", category: "Tableau", shape: "symbol", symbolId: "tableau", width: 60, height: 40 },
+  { type: "prise_terre", label: "Prise de terre", category: "Tableau", shape: "symbol", symbolId: "terre" },
 
   { type: "electromenager_four", label: "Four", category: "Électroménager", shape: "box", abbr: "F", width: 60, height: 60 },
   { type: "electromenager_plaque", label: "Plaque de cuisson", category: "Électroménager", shape: "box", abbr: "PL", width: 60, height: 60 },

@@ -12,12 +12,13 @@ import { MeasureTool } from "./editor/measureTool.js";
 import { PropertiesPanel } from "./editor/propertiesPanel.js";
 import { ElementsListDialog } from "./editor/elementsList.js";
 import { ChangeHistoryDialog } from "./editor/changeHistoryDialog.js";
+import { DiffLayer } from "./editor/diffLayer.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
 import { linkTypes } from "./catalog/linkTypes.js";
 import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
-import { exportProjectFile, importProjectFile } from "./io/projectFile.js";
+import { exportProjectFile, importProjectFile, parseProjectFile } from "./io/projectFile.js";
 import { promptFloorName } from "./editor/floorDialog.js";
 import { showToast } from "./editor/toast.js";
 
@@ -32,6 +33,7 @@ const wallPreviewLayerEl = document.querySelector("#wall-preview-layer");
 const roomsLayerEl = document.querySelector("#rooms-layer");
 const roomPreviewLayerEl = document.querySelector("#room-preview-layer");
 const measureLayerEl = document.querySelector("#measure-layer");
+const diffLayerEl = document.querySelector("#diff-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const redoMenuButton = document.querySelector("#menu-redo");
@@ -49,6 +51,10 @@ const scaleBarLineEl = document.querySelector("#scale-bar-line");
 const scaleBarLabelEl = document.querySelector("#scale-bar-label");
 const recenterViewButtonEl = document.querySelector("#btn-recenter-view");
 const filenameButtonEl = document.querySelector("#btn-filename");
+const compareFileInputEl = document.querySelector("#compare-file-input");
+const compareBannerEl = document.querySelector("#compare-banner");
+const compareBannerLabelEl = document.querySelector("#compare-banner-label");
+const compareExitButtonEl = document.querySelector("#btn-compare-exit");
 
 for (const linkType of linkTypes) {
   const option = document.createElement("option");
@@ -156,6 +162,7 @@ const wallTool = new WallTool({ layerEl: wallPreviewLayerEl, stage, store });
 const openingTool = new OpeningTool({ stage, store });
 const roomTool = new RoomTool({ layerEl: roomPreviewLayerEl, stage, store });
 const measureTool = new MeasureTool({ layerEl: measureLayerEl, stage });
+const diffLayer = new DiffLayer({ layerEl: diffLayerEl, store });
 
 propertiesPanel = new PropertiesPanel({
   containerEl: propertiesPanelEl,
@@ -237,6 +244,10 @@ store.onAction((action) => {
   if (!described) return;
   showToast(described.message, { type: described.type });
   store.recordChange(described.message, described.type);
+  // Un nouveau projet ou un fichier ouvert n'a aucun rapport avec le fichier
+  // comparé : une comparaison encore active deviendrait trompeuse (diff par
+  // id contre un projet différent), donc on la coupe.
+  if (action.type === "project:new" || action.type === "project:opened") diffLayer.clear();
 });
 
 // Nom du fichier .aiti courant en bas à droite du plan (voir Store.getFileName) :
@@ -247,6 +258,28 @@ function refreshFileNameLabel() {
   filenameButtonEl.textContent = store.getFileName() || "Projet non enregistré";
 }
 filenameButtonEl?.addEventListener("click", () => changeHistoryDialog.open());
+
+// Bannière de comparaison (voir diffLayer.js) : affichée tant qu'un second
+// fichier .aiti est chargé pour comparaison, avec le décompte pour l'étage
+// affiché. Ne fait rien si aucune comparaison n'est active.
+function refreshCompareBanner() {
+  if (!compareBannerEl) return;
+  if (!diffLayer.isActive()) {
+    compareBannerEl.hidden = true;
+    return;
+  }
+  compareBannerEl.hidden = false;
+  const summary = diffLayer.getSummary();
+  if (!summary || summary.floorMissing) {
+    compareBannerLabelEl.textContent = `Comparé à "${diffLayer.getComparisonName()}" — cet étage n'existe pas dans ce fichier.`;
+  } else {
+    compareBannerLabelEl.textContent =
+      `Comparé à "${diffLayer.getComparisonName()}" — ` +
+      `${summary.added} ajouté${summary.added > 1 ? "s" : ""}, ` +
+      `${summary.modified} modifié${summary.modified > 1 ? "s" : ""}/déplacé${summary.modified > 1 ? "s" : ""}, ` +
+      `${summary.removed} supprimé${summary.removed > 1 ? "s" : ""}.`;
+  }
+}
 
 // Point d'entrée unique pour changer d'étage affiché (sélecteur, "aller à
 // l'exemplaire lié", création/suppression d'étage) : garde le stage, les
@@ -263,6 +296,8 @@ async function switchToFloor(floorId) {
   openingTool.setFloor(floor.id);
   roomsLayer.setFloor(floor.id);
   roomTool.setFloor(floor.id);
+  diffLayer.setFloor(floor.id);
+  refreshCompareBanner();
   propertiesPanel.refresh();
 }
 
@@ -273,6 +308,8 @@ store.onChange(() => {
   roomsLayer.render();
   refreshUndoState();
   refreshFileNameLabel();
+  diffLayer.render();
+  refreshCompareBanner();
   // Différé : si le changement vient d'un champ du panneau lui-même (évènement
   // "change" en cours), reconstruire son DOM tout de suite fait planter le
   // navigateur ("node no longer a child" pendant le blur de ce même champ).
@@ -439,6 +476,28 @@ importFileInputEl.addEventListener("change", async () => {
   } catch (error) {
     alert(error.message);
   }
+});
+
+// Comparaison : le fichier chargé reste en mémoire (diffLayer), le projet
+// ouvert n'est jamais touché. Diff par id de composant, pertinent pour
+// comparer deux versions sauvegardées du même projet (voir diffLayer.js).
+menuBar.onAction("#menu-compare-project", () => compareFileInputEl?.click());
+compareFileInputEl?.addEventListener("change", async () => {
+  const file = compareFileInputEl.files[0];
+  compareFileInputEl.value = "";
+  if (!file) return;
+  try {
+    const data = await parseProjectFile(file);
+    diffLayer.setComparisonData(data, file.name);
+    refreshCompareBanner();
+    showToast(`Comparaison avec "${file.name}" activée`);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+compareExitButtonEl?.addEventListener("click", () => {
+  diffLayer.clear();
+  refreshCompareBanner();
 });
 
 // Les exports couvrent toujours tous les étages (un fichier par étage pour

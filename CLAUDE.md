@@ -147,6 +147,22 @@ Liaison {
   seulement dans `beta/index.html`, `main.js` s'y adapte via des vérifications de nullité,
   le rendu reste partagé.
 
+## Comparaison de plans
+Menu Fichier > Comparer avec un fichier (.aiti)... : charge un second fichier en mémoire
+(`js/editor/diffLayer.js`), sans jamais toucher au Store ni au projet ouvert — pas de
+fusion, juste un affichage superposé. Diff par étage (apparié par `floor.id`) et par
+composant (apparié par `component.id`) : pertinent pour comparer deux versions sauvegardées
+d'un même projet (ex: avant/après une série de modifs), pas deux projets sans rapport (les
+id ne correspondraient à rien, tout apparaîtrait comme ajouté/supprimé). Composant présent
+seulement dans le projet ouvert → ajouté (vert) ; seulement dans le fichier comparé →
+supprimé (silhouette pointillée rouge à son ancien emplacement) ; présent dans les deux mais
+position/rotation/type/nom différents → modifié (orange), avec un trait pointillé vers
+l'ancienne position si déplacé. Bannière en haut de l'écran avec le décompte pour l'étage
+affiché (ou un message si cet étage n'existe pas dans le fichier comparé) et un bouton pour
+quitter la comparaison. Coupée automatiquement par "Nouveau projet"/"Ouvrir un projet" (la
+comparaison n'aurait plus de sens contre un projet différent) ; jamais incluse dans les
+exports (SVG/PNG/PDF).
+
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
   4/8/12/16/24/32/48px), typographie.
@@ -222,7 +238,7 @@ Liaison {
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/
 lave-vaisselle/convecteur/chauffe-eau/sèche-serviette pour les circuits dédiés), points
 lumineux (plafonnier, applique, spot),
-interrupteur simple, va-et-vient, poussoir, variateur, tableau électrique,
+interrupteur simple, va-et-vient, poussoir, variateur, tableau électrique, prise de terre,
 électroménager (four, plaque, lave-linge, lave-vaisselle, chauffe-eau/cumulus, convecteur
 électrique, sèche-serviette, réfrigérateur), VMC, sanitaire (toilettes, lavabo — pas
 électriques mais utiles comme repères d'encombrement), meuble personnalisé (taille/nom
