@@ -11,11 +11,7 @@ const BOX_HITBOX_PADDING = 4;
 const CLICK_THRESHOLD_PX = 6;
 const RESIZE_HANDLE_SIZE = 10;
 const MIN_SIZE_CM = 10;
-// Postes d'un appareillage groupé (interrupteur double/triple...) : chaque
-// poste répète le même pictogramme, plus petit et rapproché, plutôt qu'un
-// symbole dédié par variante (voir catalog/components.js, entry.gangable).
-const GANG_ICON_SIZE = 22;
-const GANG_SPACING = 26;
+const GROUP_PADDING = 18;
 
 // Gère l'affichage, la sélection, le déplacement et la rotation des composants posés
 export class ComponentsLayer {
@@ -33,6 +29,7 @@ export class ComponentsLayer {
     this.resizeState = null;
     this.placementStart = null;
     this.linkPickHandler = null;
+    this.groupPickHandler = null;
     this.pendingHighlightId = null;
     this.snapTargetId = null;
     this.suspended = false;
@@ -56,6 +53,13 @@ export class ComponentsLayer {
 
   setLinkPickHandler(handler) {
     this.linkPickHandler = handler;
+  }
+
+  // Même mécanique que setLinkPickHandler, pour le bouton "Grouper" (voir
+  // main.js) : n'accepte que les composants de la famille Commandes
+  // (interrupteur, va-et-vient, poussoir, variateur).
+  setGroupPickHandler(handler) {
+    this.groupPickHandler = handler;
   }
 
   // Pendant l'outil de mesure, les clics sur un composant doivent atteindre le
@@ -88,18 +92,57 @@ export class ComponentsLayer {
     this.layerEl.replaceChildren();
     if (!this.floorId) return;
     const components = this.store.getComponentsForFloor(this.floorId);
+    const notedItems = getNotedItems(this.store, this.floorId);
+
+    // Cadres de groupe en premier passage, sous les composants (voir
+    // renderGroupRect) : un interrupteur double/triple... n'est qu'un
+    // ensemble de composants Commandes partageant un groupId (pas une
+    // entrée de catalogue par variante), matérialisé par ce cadre commun.
+    const groupNoteNumbers = noteNumbersByKind(notedItems, "group");
+    for (const group of this.store.getGroupsForFloor(this.floorId)) {
+      const members = this.store.getComponentsInGroup(group.id);
+      if (members.length < 2) continue;
+      this.layerEl.appendChild(this.renderGroupRect(group, members));
+      const number = groupNoteNumbers.get(group.id);
+      if (number) {
+        const maxX = Math.max(...members.map((c) => c.x));
+        const minY = Math.min(...members.map((c) => c.y));
+        this.layerEl.appendChild(this.renderNoteMarker({ x: maxX + GROUP_PADDING, y: minY - GROUP_PADDING, comment: group.comment }, number));
+      }
+    }
+
     for (const component of components) {
       this.layerEl.appendChild(this.renderComponent(component));
     }
     // Pastilles de note en second passage, par-dessus tous les composants :
-    // numérotation partagée avec les liaisons commentées (voir notesRegistry.js)
-    // et la légende à l'export (io/exportPlan.js), pour qu'un même élément
-    // commenté porte toujours le même numéro partout.
-    const noteNumbers = noteNumbersByKind(getNotedItems(this.store, this.floorId), "component");
+    // numérotation partagée avec les liaisons/groupes commentés (voir
+    // notesRegistry.js) et la légende à l'export (io/exportPlan.js), pour
+    // qu'un même élément commenté porte toujours le même numéro partout.
+    const noteNumbers = noteNumbersByKind(notedItems, "component");
     for (const component of components) {
       const number = noteNumbers.get(component.id);
       if (number) this.layerEl.appendChild(this.renderNoteMarker(component, number));
     }
+  }
+
+  // Cadre commun d'un groupe d'interrupteurs (voir Store.groupComponents) :
+  // rectangle englobant les centres de ses composants, avec une marge.
+  renderGroupRect(group, members) {
+    const xs = members.map((c) => c.x);
+    const ys = members.map((c) => c.y);
+    const x1 = Math.min(...xs) - GROUP_PADDING;
+    const y1 = Math.min(...ys) - GROUP_PADDING;
+    const x2 = Math.max(...xs) + GROUP_PADDING;
+    const y2 = Math.max(...ys) + GROUP_PADDING;
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", x1);
+    rect.setAttribute("y", y1);
+    rect.setAttribute("width", x2 - x1);
+    rect.setAttribute("height", y2 - y1);
+    rect.setAttribute("rx", 6);
+    rect.classList.add("component-group__rect");
+    rect.dataset.groupId = group.id;
+    return rect;
   }
 
   // Rendue hors du groupe (rotatif) du composant, en coordonnées absolues du
@@ -143,17 +186,14 @@ export class ComponentsLayer {
 
     const width = component.width ?? entry.width ?? DEFAULT_SYMBOL_SIZE;
     const height = component.height ?? entry.height ?? DEFAULT_SYMBOL_SIZE;
-    const gang = entry.gangable ? Math.min(entry.gangMax ?? 4, Math.max(1, component.gang ?? 1)) : 1;
-    const gangWidth = gang > 1 ? (gang - 1) * GANG_SPACING + GANG_ICON_SIZE : width;
-    const gangHeight = gang > 1 ? GANG_ICON_SIZE : height;
 
     // Zone de clic invisible. Pour les éléments à emprise réelle (meubles,
     // électroménager, porte...), elle colle à la forme même (rectangulaire,
     // pas un carré qui déborderait) ; pour les petits symboles (prises,
     // interrupteurs...), une marge modeste compense leur trait fin.
     const isRealFootprint = entry.shape === "box" || entry.shape === "door";
-    const hitboxWidth = isRealFootprint ? width + BOX_HITBOX_PADDING : Math.max(gangWidth, gangHeight) + SYMBOL_HITBOX_PADDING;
-    const hitboxHeight = isRealFootprint ? height + BOX_HITBOX_PADDING : Math.max(gangWidth, gangHeight) + SYMBOL_HITBOX_PADDING;
+    const hitboxWidth = isRealFootprint ? width + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
+    const hitboxHeight = isRealFootprint ? height + BOX_HITBOX_PADDING : Math.max(width, height) + SYMBOL_HITBOX_PADDING;
     const hitbox = document.createElementNS(SVG_NS, "rect");
     hitbox.setAttribute("x", -hitboxWidth / 2);
     hitbox.setAttribute("y", -hitboxHeight / 2);
@@ -206,21 +246,6 @@ export class ComponentsLayer {
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
       group.appendChild(text);
-    } else if (gang > 1) {
-      // Appareillage à plusieurs postes : le même pictogramme répété, plus
-      // petit et rapproché, plutôt qu'un symbole dédié par variante.
-      const span = (gang - 1) * GANG_SPACING;
-      for (let i = 0; i < gang; i++) {
-        const cx = -span / 2 + i * GANG_SPACING;
-        const use = document.createElementNS(SVG_NS, "use");
-        use.setAttribute("href", `#sym-${entry.symbolId}`);
-        use.setAttribute("x", cx - GANG_ICON_SIZE / 2);
-        use.setAttribute("y", -GANG_ICON_SIZE / 2);
-        use.setAttribute("width", GANG_ICON_SIZE);
-        use.setAttribute("height", GANG_ICON_SIZE);
-        use.classList.add("component__shape");
-        group.appendChild(use);
-      }
     } else {
       const use = document.createElementNS(SVG_NS, "use");
       use.setAttribute("href", `#sym-${entry.symbolId}`);
@@ -287,6 +312,11 @@ export class ComponentsLayer {
     if (this.linkPickHandler) {
       const entry = getCatalogEntry(component.type);
       if (isElectrifiable(component, entry)) this.linkPickHandler(component);
+      return;
+    }
+    if (this.groupPickHandler) {
+      const entry = getCatalogEntry(component.type);
+      if (entry?.category === "Commandes") this.groupPickHandler(component);
       return;
     }
     // On ne sait pas encore si ce sera un clic (sélection + proposition de

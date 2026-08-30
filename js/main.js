@@ -188,7 +188,35 @@ propertiesPanel = new PropertiesPanel({
   // Bouton "Ajouter une liaison" du panneau de propriétés : même geste que le
   // 2e clic sur un composant déjà sélectionné (voir ComponentsLayer.handleComponentClick).
   onAddLiaison: (component) => linksLayer.beginFrom(component, linkTypeSelectEl.value),
+  // Bouton "Grouper" (interrupteur double/triple...) : arme un clic-cible sur
+  // le plan, même mécanique que l'ajout de liaison.
+  onGroupComponent: (component) => beginGroupPick(component),
 });
+
+// Groupement d'interrupteurs (voir Store.groupComponents) : clic-cible sur
+// le plan, comme LinksLayer.beginFrom/pick pour une liaison, mais sans ligne
+// de prévisualisation (pas de géométrie à montrer avant de valider).
+let groupPickFromId = null;
+
+function beginGroupPick(component) {
+  groupPickFromId = component.id;
+  componentsLayer.setGroupPickHandler((target) => finishGroupPick(target));
+  componentsLayer.setPendingHighlight(component.id);
+  stage.svgEl.classList.add("stage__svg--linking");
+}
+
+function finishGroupPick(target) {
+  if (target.id !== groupPickFromId) store.groupComponents(groupPickFromId, target.id);
+  stopGroupPick();
+}
+
+function stopGroupPick() {
+  if (!groupPickFromId) return;
+  groupPickFromId = null;
+  componentsLayer.setGroupPickHandler(null);
+  componentsLayer.setPendingHighlight(null);
+  stage.svgEl.classList.remove("stage__svg--linking");
+}
 
 // Met en surbrillance les liaisons connectées au composant actuellement
 // sélectionné, sans avoir à cliquer sur leur trait fin.
@@ -231,6 +259,10 @@ function describeAction(action) {
       return { message: "Composant ajouté sur l'autre étage" };
     case "component:unlinked":
       return { message: "Lien entre étages retiré" };
+    case "group:formed":
+      return { message: "Interrupteurs groupés" };
+    case "group:left":
+      return { message: "Interrupteur retiré du groupe" };
     case "liaison:added":
       return { message: `Liaison ajoutée : ${getLinkType(action.linkType)?.label || action.linkType}`, silent: true };
     case "liaison:removed":
@@ -416,6 +448,7 @@ if (roomModeButtonEl) {
 // ComponentsLayer/LinksLayer/WallTool), et revient au mode sélection.
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || isEditingText(event.target)) return;
+  stopGroupPick();
   setMode("select");
 });
 

@@ -40,8 +40,8 @@ Component {
   x: number, y: number, // coordonnées dans le repère du viewBox du plan (1558 x 801.32)
   rotation: number,     // degrés
   label?: string,       // nom personnalisé (ex: "Prise cuisine plan de travail")
-  gang?: number         // nombre de postes (interrupteur double/triple...), catalog.gangable
-                         // uniquement ; répète le pictogramme au lieu d'un type par variante
+  groupId?: string       // interrupteur double/triple... : voir "Groupement de composants
+                         // Commandes", regroupe plusieurs composants sous un cadre commun
 }
 
 // Une liaison = un fil entre deux extrémités (composant ou nœud intermédiaire)
@@ -233,6 +233,18 @@ exports (SVG/PNG/PDF).
   `elec-aiti:project`, voir `state.js`) : même origine que la version stable (juste un
   sous-dossier), donc sans ça les deux partageraient le même projet.
 - Lien réciproque dans le menu Plan des deux pages.
+
+## Groupement de composants Commandes
+Un interrupteur double/triple... n'est pas une entrée de catalogue par variante mais un
+groupe : des composants de la famille Commandes (interrupteur simple, va-et-vient,
+poussoir, variateur) partageant un `groupId`, avec l'entité de groupe elle-même
+(`{ id, floorId, comment? }`) dans `state.groups`. Panneau de propriétés : bouton
+"Grouper avec un autre interrupteur" (clic-cible sur le plan, même mécanique que "Ajouter
+une liaison") ; une fois groupé, "Ajouter un autre interrupteur au groupe" (rejoint le même
+groupe), "Retirer du groupe" et un champ de note propre au groupe. Un groupe de moins de 2
+membres est automatiquement dissous (composant retiré ou supprimé). Rendu
+(`ComponentsLayer.renderGroupRect`) : rectangle pointillé englobant les centres des
+composants du groupe, sous les pictogrammes.
 
 ## Catalogue de composants initial (v1)
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/

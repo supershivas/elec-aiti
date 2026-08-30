@@ -14,7 +14,7 @@ function field(labelText, inputEl) {
 // Panneau de propriétés du composant ou de la liaison sélectionné(e).
 // Se contente de relire l'état courant à chaque refresh() : pas d'état interne.
 export class PropertiesPanel {
-  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, roomsLayer, onGoToLinkedComponent, onAddLiaison }) {
+  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, roomsLayer, onGoToLinkedComponent, onAddLiaison, onGroupComponent }) {
     this.containerEl = containerEl;
     this.store = store;
     this.componentsLayer = componentsLayer;
@@ -23,6 +23,7 @@ export class PropertiesPanel {
     this.roomsLayer = roomsLayer;
     this.onGoToLinkedComponent = onGoToLinkedComponent;
     this.onAddLiaison = onAddLiaison;
+    this.onGroupComponent = onGroupComponent;
   }
 
   refresh() {
@@ -83,26 +84,6 @@ export class PropertiesPanel {
         this.store.updateComponent(component.id, { type: typeSelect.value });
       });
       this.containerEl.appendChild(field("Type", typeSelect));
-    }
-
-    // Appareillage à plusieurs postes (interrupteur double, triple...) : un
-    // seul type de catalogue, le nombre de postes se règle ici plutôt que de
-    // multiplier les entrées "Interrupteur double", "Interrupteur triple"...
-    if (entry.gangable) {
-      const gangSelect = document.createElement("select");
-      const gangLabels = ["Simple", "Double", "Triple", "Quadruple", "Quintuple", "Sextuple"];
-      for (let n = 1; n <= (entry.gangMax ?? 4); n++) {
-        const option = document.createElement("option");
-        option.value = String(n);
-        option.textContent = gangLabels[n - 1] ?? `${n} postes`;
-        if ((component.gang ?? 1) === n) option.selected = true;
-        gangSelect.appendChild(option);
-      }
-      gangSelect.addEventListener("change", () => {
-        this.store.snapshot();
-        this.store.updateComponent(component.id, { gang: Number(gangSelect.value) });
-      });
-      this.containerEl.appendChild(field("Nombre de postes", gangSelect));
     }
 
     const labelInput = document.createElement("input");
@@ -221,6 +202,8 @@ export class PropertiesPanel {
       this.containerEl.appendChild(addLiaisonBtn);
     }
 
+    if (entry.category === "Commandes") this.renderGroupSection(component);
+
     this.renderLiaisonsSection(component);
     this.renderMultiFloorSection(component);
 
@@ -242,6 +225,56 @@ export class PropertiesPanel {
     this.containerEl.appendChild(duplicateBtn);
 
     this.containerEl.appendChild(this.buildDeleteButton(() => this.store.removeComponent(component.id)));
+  }
+
+  // Appareillage groupé (interrupteur double/triple...) : un ensemble de
+  // composants Commandes partageant un groupId, dessiné comme un cadre
+  // commun (voir ComponentsLayer.renderGroupRect) plutôt qu'une entrée de
+  // catalogue par variante. "Grouper" utilise le même geste que "Ajouter une
+  // liaison" (armer puis cliquer une cible sur le plan).
+  renderGroupSection(component) {
+    const heading = document.createElement("h4");
+    heading.className = "properties__subtitle";
+    heading.textContent = "Groupe";
+    this.containerEl.appendChild(heading);
+
+    const group = component.groupId ? this.store.getGroupById(component.groupId) : null;
+
+    if (group) {
+      const members = this.store.getComponentsInGroup(group.id);
+      const info = document.createElement("p");
+      info.className = "properties__empty";
+      const names = members.map((m) => m.label || getCatalogEntry(m.type)?.label || m.type).join(", ");
+      info.textContent = `Groupé avec : ${names}.`;
+      this.containerEl.appendChild(info);
+
+      this.containerEl.appendChild(
+        this.buildCommentField(group.comment, (value) => {
+          this.store.updateGroup(group.id, { comment: value });
+        }, "Note du groupe"),
+      );
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "toolbar__button";
+      addBtn.textContent = "Ajouter un autre interrupteur au groupe";
+      addBtn.addEventListener("click", () => this.onGroupComponent?.(component));
+      this.containerEl.appendChild(addBtn);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "toolbar__button";
+      removeBtn.textContent = "Retirer du groupe";
+      removeBtn.addEventListener("click", () => this.store.removeFromGroup(component.id));
+      this.containerEl.appendChild(removeBtn);
+    } else {
+      const groupBtn = document.createElement("button");
+      groupBtn.type = "button";
+      groupBtn.className = "toolbar__button";
+      groupBtn.textContent = "Grouper avec un autre interrupteur";
+      groupBtn.addEventListener("click", () => this.onGroupComponent?.(component));
+      this.containerEl.appendChild(groupBtn);
+    }
   }
 
   // Un même équipement physique (ex: applique de cage d'escalier) peut être
@@ -290,13 +323,13 @@ export class PropertiesPanel {
     }
   }
 
-  buildCommentField(value, onChange) {
+  buildCommentField(value, onChange, labelText = "Commentaire") {
     const textarea = document.createElement("textarea");
     textarea.rows = 3;
     textarea.value = value || "";
     textarea.placeholder = "Note libre (emplacement, remarque, à vérifier...)";
     textarea.addEventListener("change", () => onChange(textarea.value.trim() || undefined));
-    return field("Commentaire", textarea);
+    return field(labelText, textarea);
   }
 
   // Liste les liaisons connectées à ce composant : pas besoin de cliquer sur le

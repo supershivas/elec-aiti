@@ -566,6 +566,14 @@
   font-weight: 700;
 }
 
+.component-group__rect {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
 .component__resize-handle {
   fill: var(--color-accent);
   stroke: #fff;

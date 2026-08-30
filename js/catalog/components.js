@@ -23,10 +23,7 @@ export const catalog = [
   { type: "point_lumineux_applique", label: "Applique murale", category: "Éclairage", shape: "symbol", symbolId: "applique" },
   { type: "point_lumineux_spot", label: "Spot", category: "Éclairage", shape: "symbol", symbolId: "spot" },
 
-  // gangable : peut être posé en plusieurs postes (double, triple...) sur le
-  // même appareillage — component.gang (2 à gangMax) répète le pictogramme
-  // plutôt que d'ajouter une entrée de catalogue par variante.
-  { type: "interrupteur_simple", label: "Interrupteur simple", category: "Commandes", shape: "symbol", symbolId: "interrupteur", gangable: true, gangMax: 4 },
+  { type: "interrupteur_simple", label: "Interrupteur simple", category: "Commandes", shape: "symbol", symbolId: "interrupteur" },
   { type: "va_et_vient", label: "Va-et-vient", category: "Commandes", shape: "symbol", symbolId: "va-et-vient", width: 67, height: 67 },
   { type: "poussoir", label: "Poussoir", category: "Commandes", shape: "symbol", symbolId: "poussoir" },
   { type: "variateur", label: "Variateur", category: "Commandes", shape: "symbol", symbolId: "variateur" },

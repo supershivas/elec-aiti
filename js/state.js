@@ -12,7 +12,7 @@ function seedFloors() {
 }
 
 function defaultState() {
-  return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null, changeLog: [] };
+  return { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], groups: [], fileName: null, changeLog: [] };
 }
 
 function loadFromStorage() {
@@ -27,6 +27,7 @@ function loadFromStorage() {
       walls: Array.isArray(parsed.walls) ? parsed.walls : [],
       openings: Array.isArray(parsed.openings) ? parsed.openings : [],
       rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
+      groups: Array.isArray(parsed.groups) ? parsed.groups : [],
       fileName: typeof parsed.fileName === "string" ? parsed.fileName : null,
       changeLog: Array.isArray(parsed.changeLog) ? parsed.changeLog : [],
     };
@@ -96,6 +97,7 @@ export class Store {
         walls: this.state.walls,
         openings: this.state.openings,
         rooms: this.state.rooms,
+        groups: this.state.groups,
       }),
     );
     if (this.history.length > MAX_HISTORY) this.history.shift();
@@ -120,6 +122,7 @@ export class Store {
       walls: this.state.walls,
       openings: this.state.openings,
       rooms: this.state.rooms,
+      groups: this.state.groups,
     });
   }
 
@@ -131,6 +134,7 @@ export class Store {
     this.state.walls = parsed.walls ?? [];
     this.state.openings = parsed.openings ?? [];
     this.state.rooms = parsed.rooms ?? [];
+    this.state.groups = parsed.groups ?? [];
   }
 
   undo() {
@@ -219,13 +223,29 @@ export class Store {
     const newFloor = { ...floor, id: createId("f"), label: `${floor.label} (copie)` };
     this.state.floors.push(newFloor);
 
+    const groupIdMap = new Map();
+    const newGroups = this.state.groups
+      .filter((g) => g.floorId === id)
+      .map((g) => {
+        const newId = createId("g");
+        groupIdMap.set(g.id, newId);
+        return { ...g, id: newId, floorId: newFloor.id };
+      });
+    this.state.groups.push(...newGroups);
+
     const componentIdMap = new Map();
     const newComponents = this.state.components
       .filter((c) => c.floorId === id)
       .map((c) => {
         const newId = createId("c");
         componentIdMap.set(c.id, newId);
-        return { ...c, id: newId, floorId: newFloor.id, linkedComponentId: undefined };
+        return {
+          ...c,
+          id: newId,
+          floorId: newFloor.id,
+          linkedComponentId: undefined,
+          groupId: c.groupId ? groupIdMap.get(c.groupId) : undefined,
+        };
       });
     this.state.components.push(...newComponents);
 
@@ -283,6 +303,7 @@ export class Store {
     this.state.walls = this.state.walls.filter((w) => w.floorId !== id);
     this.state.openings = this.state.openings.filter((o) => o.floorId !== id);
     this.state.rooms = this.state.rooms.filter((r) => r.floorId !== id);
+    this.state.groups = this.state.groups.filter((g) => g.floorId !== id);
     this.notify();
     this.emitAction({ type: "floor:removed", label: floor?.label });
     return true;
@@ -324,7 +345,14 @@ export class Store {
     const component = this.state.components.find((c) => c.id === id);
     if (!component) return null;
     this.snapshot();
-    const clone = { ...component, id: createId("c"), x: component.x + offset, y: component.y + offset, linkedComponentId: undefined };
+    const clone = {
+      ...component,
+      id: createId("c"),
+      x: component.x + offset,
+      y: component.y + offset,
+      linkedComponentId: undefined,
+      groupId: undefined,
+    };
     this.state.components.push(clone);
     this.notify();
     this.emitAction({ type: "component:duplicated" });
@@ -343,8 +371,75 @@ export class Store {
     }
     // Une liaison qui pointe vers un composant supprimé n'a plus de sens
     this.state.liaisons = this.state.liaisons.filter((l) => l.fromComponentId !== id && l.toComponentId !== id);
+    if (removed?.groupId) this.dissolveGroupIfTooSmall(removed.groupId);
     this.notify();
     this.emitAction({ type: "component:removed" });
+  }
+
+  getGroupsForFloor(floorId) {
+    return this.state.groups.filter((group) => group.floorId === floorId);
+  }
+
+  getGroupById(id) {
+    return this.state.groups.find((group) => group.id === id);
+  }
+
+  getComponentsInGroup(groupId) {
+    return this.state.components.filter((c) => c.groupId === groupId);
+  }
+
+  // Un "groupe" (interrupteur double/triple...) est juste un ensemble de
+  // composants de la famille Commandes partageant un groupId, dessiné comme
+  // un cadre commun (voir ComponentsLayer) — pas une entrée de catalogue par
+  // variante. Rejoint le groupe existant de l'un des deux si l'autre n'en a
+  // pas encore, sinon en crée un nouveau ; fusionner deux groupes déjà
+  // formés n'est pas géré (bouton "Grouper" seulement proposé pour un
+  // composant seul, voir PropertiesPanel).
+  groupComponents(componentIdA, componentIdB) {
+    const a = this.state.components.find((c) => c.id === componentIdA);
+    const b = this.state.components.find((c) => c.id === componentIdB);
+    if (!a || !b || a.id === b.id || a.floorId !== b.floorId) return null;
+    this.snapshot();
+    let groupId = a.groupId || b.groupId;
+    if (!groupId) {
+      groupId = createId("g");
+      this.state.groups.push({ id: groupId, floorId: a.floorId });
+    }
+    a.groupId = groupId;
+    b.groupId = groupId;
+    this.notify();
+    this.emitAction({ type: "group:formed" });
+    return this.getGroupById(groupId);
+  }
+
+  // Retire un composant de son groupe ; dissout le groupe s'il ne reste
+  // qu'un seul membre (un "groupe" d'un seul composant n'a pas de sens).
+  removeFromGroup(componentId) {
+    const component = this.state.components.find((c) => c.id === componentId);
+    if (!component?.groupId) return;
+    this.snapshot();
+    const groupId = component.groupId;
+    component.groupId = undefined;
+    this.dissolveGroupIfTooSmall(groupId);
+    this.notify();
+    this.emitAction({ type: "group:left" });
+  }
+
+  // Sans snapshot/notify propres : appelé depuis d'autres méthodes qui les
+  // effectuent déjà (removeComponent, removeFromGroup).
+  dissolveGroupIfTooSmall(groupId) {
+    const members = this.getComponentsInGroup(groupId);
+    if (members.length >= 2) return;
+    for (const member of members) member.groupId = undefined;
+    this.state.groups = this.state.groups.filter((g) => g.id !== groupId);
+  }
+
+  updateGroup(id, changes) {
+    const group = this.getGroupById(id);
+    if (!group) return;
+    this.snapshot();
+    Object.assign(group, changes);
+    this.notify();
   }
 
   // Un même équipement physique peut être présent sur deux étages (ex: point
@@ -515,7 +610,7 @@ export class Store {
   // arrière en cas de clic accidentel.
   resetProject() {
     this.snapshot();
-    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], fileName: null, changeLog: [] };
+    this.state = { floors: seedFloors(), components: [], liaisons: [], walls: [], openings: [], rooms: [], groups: [], fileName: null, changeLog: [] };
     this.notify();
     this.emitAction({ type: "project:new" });
   }
@@ -534,6 +629,7 @@ export class Store {
       walls: Array.isArray(data?.walls) ? data.walls : [],
       openings: Array.isArray(data?.openings) ? data.openings : [],
       rooms: Array.isArray(data?.rooms) ? data.rooms : [],
+      groups: Array.isArray(data?.groups) ? data.groups : [],
       fileName,
       changeLog: Array.isArray(data?.changeLog) ? data.changeLog : [],
     };
@@ -556,6 +652,7 @@ export class Store {
     this.state.walls = this.state.walls.filter((w) => w.floorId !== floorId);
     this.state.openings = this.state.openings.filter((o) => o.floorId !== floorId);
     this.state.rooms = this.state.rooms.filter((r) => r.floorId !== floorId);
+    this.state.groups = this.state.groups.filter((g) => g.floorId !== floorId);
     this.notify();
     this.emitAction({ type: "floor:cleared" });
   }

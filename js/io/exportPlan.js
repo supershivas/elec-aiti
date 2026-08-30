@@ -218,6 +218,7 @@ function buildExportSvgString(stage, floor, store) {
     .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
     .component-note-marker__circle { fill: ${accentHover}; stroke: ${bgPanel}; stroke-width: 1; }
     .component-note-marker__text { fill: #fff; font: 700 7px sans-serif; }
+    .component-group__rect { fill: none; stroke: ${textMuted}; stroke-width: 1.5; stroke-dasharray: 4 3; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
     .wall__shape, .wall__joint { fill: ${planStroke}; stroke: none; }
     .opening__door-line { stroke: ${planStroke}; stroke-width: 2; fill: none; }
