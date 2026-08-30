@@ -29,6 +29,7 @@ const floorSelectEl = document.querySelector("#floor-select");
 const paletteEl = document.querySelector("#palette");
 const componentsLayerEl = document.querySelector("#components-layer");
 const linksLayerEl = document.querySelector("#links-layer");
+const linksOverlayLayerEl = document.querySelector("#links-overlay-layer");
 const wallsLayerEl = document.querySelector("#walls-layer");
 const wallPreviewLayerEl = document.querySelector("#wall-preview-layer");
 const roomsLayerEl = document.querySelector("#rooms-layer");
@@ -125,6 +126,7 @@ const palette = new Palette({
 
 linksLayer = new LinksLayer({
   layerEl: linksLayerEl,
+  overlayLayerEl: linksOverlayLayerEl,
   stage,
   store,
   componentsLayer,

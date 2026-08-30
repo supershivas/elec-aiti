@@ -44,16 +44,21 @@ function segmentCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
   return [t1, t2];
 }
 
-// Portions [t1,t2] de la ligne (voir renderLiaison) réellement dessinées :
+// Portions [t1,t2] de la ligne (voir renderLiaison), chacune taguée
+// crossing:true/false :
 // - reculées à chaque extrémité jusqu'au bord de son propre composant plutôt
 //   que son centre (sans ça, la portion sous une grande forme opaque comme un
 //   électroménager ou un tableau disparaît visuellement dessous, donnant
 //   l'impression que le fil n'atteint pas le composant au lieu de s'y
 //   raccorder) ;
-// - effacées là où elles traversent un composant tiers (pas ses deux
-//   extrémités) : plutôt que de dessiner le trait par-dessus, il "passe
-//   derrière" avec un petit vide à cet endroit.
-function buildVisibleSegments(from, to, otherComponents) {
+// - restent dessinées là où elles traversent un composant tiers (pas ses
+//   deux extrémités), mais crossing:true : la portion passe alors "par
+//   dessus" ce composant (rendue dans LinksLayer.overlayLayerEl, au-dessus du
+//   calque des composants) avec un style plus discret plutôt que d'être
+//   effacée — sinon une liaison qui traverse un gros composant sur une bonne
+//   partie de son tracé (ex: électroménager entre les deux extrémités)
+//   semble juste s'arrêter en route, illisible.
+function buildLineSegments(from, to, otherComponents) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const totalLength = Math.hypot(dx, dy);
@@ -71,31 +76,31 @@ function buildVisibleSegments(from, to, otherComponents) {
     }
   }
 
-  let excluded = [];
+  let crossings = [];
   for (const component of otherComponents) {
     const range = segmentCircleIntersection(from.x, from.y, to.x, to.y, component.x, component.y, componentGapRadius(component));
-    if (range) excluded.push(range);
+    if (range) crossings.push([Math.max(range[0], tStart), Math.min(range[1], tEnd)]);
   }
-  if (excluded.length === 0) return [[tStart, tEnd]];
+  crossings = crossings.filter(([start, end]) => end - start > 0.001);
+  if (crossings.length === 0) return [{ t1: tStart, t2: tEnd, crossing: false }];
 
-  excluded.sort((a, b) => a[0] - b[0]);
-  const merged = [excluded[0]];
-  for (const [start, end] of excluded.slice(1)) {
+  crossings.sort((a, b) => a[0] - b[0]);
+  const merged = [crossings[0]];
+  for (const [start, end] of crossings.slice(1)) {
     const last = merged[merged.length - 1];
     if (start <= last[1]) last[1] = Math.max(last[1], end);
     else merged.push([start, end]);
   }
 
-  const visible = [];
+  const segments = [];
   let cursor = tStart;
   for (const [start, end] of merged) {
-    const clippedStart = Math.max(start, tStart);
-    const clippedEnd = Math.min(end, tEnd);
-    if (clippedStart - cursor > 0.01) visible.push([cursor, clippedStart]);
-    cursor = Math.max(cursor, clippedEnd);
+    if (start - cursor > 0.001) segments.push({ t1: cursor, t2: start, crossing: false });
+    segments.push({ t1: start, t2: end, crossing: true });
+    cursor = end;
   }
-  if (tEnd - cursor > 0.01) visible.push([cursor, tEnd]);
-  return visible;
+  if (tEnd - cursor > 0.001) segments.push({ t1: cursor, t2: tEnd, crossing: false });
+  return segments;
 }
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
@@ -128,8 +133,14 @@ function autoConvertVaEtVient(store, floorId, hubComponentId) {
 // Une liaison ne stocke que les deux ID de composants : sa géométrie est
 // recalculée à chaque rendu à partir de leur position courante.
 export class LinksLayer {
-  constructor({ layerEl, stage, store, componentsLayer, onSelect }) {
+  constructor({ layerEl, overlayLayerEl, stage, store, componentsLayer, onSelect }) {
     this.layerEl = layerEl;
+    // Calque séparé, situé APRÈS #components-layer dans le SVG hôte : la
+    // portion d'une liaison qui traverse un composant tiers y est dupliquée
+    // pour rester visible par-dessus lui (voir buildLineSegments), plutôt que
+    // d'être cachée dessous comme le reste du trait (#links-layer, avant
+    // #components-layer).
+    this.overlayLayerEl = overlayLayerEl;
     this.stage = stage;
     this.store = store;
     this.componentsLayer = componentsLayer;
@@ -153,6 +164,7 @@ export class LinksLayer {
 
   render() {
     this.layerEl.replaceChildren();
+    this.overlayLayerEl?.replaceChildren();
     if (!this.floorId) return;
     const components = this.store.getComponentsForFloor(this.floorId);
     const findComponent = (id) => components.find((c) => c.id === id);
@@ -161,23 +173,25 @@ export class LinksLayer {
       const to = findComponent(liaison.toComponentId);
       if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
       const others = components.filter((c) => c.id !== from.id && c.id !== to.id);
-      this.layerEl.appendChild(this.renderLiaison(liaison, from, to, others));
+      this.renderLiaison(liaison, from, to, others);
     }
   }
 
   renderLiaison(liaison, from, to, otherComponents) {
     const linkType = getLinkType(liaison.type);
-    const group = document.createElementNS(SVG_NS, "g");
-    group.classList.add("liaison");
-    if (liaison.id === this.selectedId) group.classList.add("liaison--selected");
+    const color = this.resolveColor(linkType);
+    const stateClasses = [];
+    if (liaison.id === this.selectedId) stateClasses.push("liaison--selected");
     if (this.highlightedComponentId && (liaison.fromComponentId === this.highlightedComponentId || liaison.toComponentId === this.highlightedComponentId)) {
-      group.classList.add("liaison--connected");
+      stateClasses.push("liaison--connected");
     }
-    group.dataset.liaisonId = liaison.id;
 
+    const group = document.createElementNS(SVG_NS, "g");
+    group.classList.add("liaison", ...stateClasses);
+    group.dataset.liaisonId = liaison.id;
     // Couleur résolue en dur (pas de var() vers le token) pour rester correcte
     // dans un export SVG/PNG autonome, qui n'a pas accès à design-tokens.css.
-    group.style.setProperty("--liaison-color", this.resolveColor(linkType));
+    group.style.setProperty("--liaison-color", color);
 
     const hit = document.createElementNS(SVG_NS, "line");
     hit.setAttribute("x1", from.x);
@@ -188,18 +202,32 @@ export class LinksLayer {
     hit.setAttribute("stroke-width", HIT_STROKE_WIDTH);
     group.appendChild(hit);
 
-    // Le trait visible s'efface là où il traverse un composant tiers (pas ses
-    // deux extrémités) plutôt que de passer par-dessus (voir buildVisibleSegments).
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    for (const [t1, t2] of buildVisibleSegments(from, to, otherComponents)) {
+    let overlayGroup = null;
+    for (const { t1, t2, crossing } of buildLineSegments(from, to, otherComponents)) {
       const line = document.createElementNS(SVG_NS, "line");
       line.setAttribute("x1", from.x + t1 * dx);
       line.setAttribute("y1", from.y + t1 * dy);
       line.setAttribute("x2", from.x + t2 * dx);
       line.setAttribute("y2", from.y + t2 * dy);
       line.classList.add("liaison__line");
-      group.appendChild(line);
+      if (!crossing) {
+        group.appendChild(line);
+        continue;
+      }
+      // Portion qui traverse un composant tiers : dupliquée dans le calque
+      // au-dessus des composants, avec un style plus discret (voir CSS), pour
+      // qu'elle reste lisible plutôt que cachée dessous.
+      line.classList.add("liaison__line--crossing");
+      if (!overlayGroup && this.overlayLayerEl) {
+        overlayGroup = document.createElementNS(SVG_NS, "g");
+        overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
+        overlayGroup.style.setProperty("--liaison-color", color);
+        overlayGroup.style.pointerEvents = "none";
+        this.overlayLayerEl.appendChild(overlayGroup);
+      }
+      overlayGroup?.appendChild(line);
     }
 
     const title = document.createElementNS(SVG_NS, "title");
@@ -210,7 +238,7 @@ export class LinksLayer {
       event.stopPropagation();
       this.select(liaison.id);
     });
-    return group;
+    this.layerEl.appendChild(group);
   }
 
   resolveColor(linkType) {

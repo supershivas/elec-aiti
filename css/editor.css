@@ -605,6 +605,16 @@
   stroke-width: 4.5;
 }
 
+.liaison__line--crossing {
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  opacity: 0.7;
+}
+
+.liaison--overlay {
+  cursor: default;
+}
+
 .measure {
   pointer-events: none;
 }
