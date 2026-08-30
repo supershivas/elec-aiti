@@ -1,9 +1,44 @@
 import { getLinkType } from "../catalog/linkTypes.js";
 import { getCatalogEntry } from "../catalog/components.js";
+import { DEFAULT_SYMBOL_SIZE } from "./componentsLayer.js";
 import { isEditingText } from "./domUtils.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
+const GAP_PADDING = 4;
+
+// Rayon approximatif de l'emprise visuelle d'un composant (voir
+// ComponentsLayer.renderComponent), pour savoir où s'arrête la portion
+// "au-dessus" du trait près de chacune de ses deux extrémités (voir
+// renderLiaison) : passé ce rayon, on entre dans l'emprise du composant
+// lui-même, où le trait doit au contraire passer derrière lui.
+function componentGapRadius(component) {
+  const entry = getCatalogEntry(component.type);
+  const width = component.width ?? entry?.width ?? DEFAULT_SYMBOL_SIZE;
+  const height = component.height ?? entry?.height ?? DEFAULT_SYMBOL_SIZE;
+  return Math.max(width, height) / 2 + GAP_PADDING;
+}
+
+// Portion [tStart,tEnd] du trait (voir renderLiaison) à dupliquer au-dessus
+// des composants : le milieu du trajet, en excluant l'emprise de chacune de
+// ses deux propres extrémités (là, le trait ne doit rester que dans le
+// calque de base, donc passer derrière son propre composant).
+function overlayRange(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const totalLength = Math.hypot(dx, dy);
+  if (totalLength === 0) return null;
+
+  let tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
+  let tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
+  if (tStart >= tEnd) return null; // composants trop proches/superposés : pas de milieu à isoler
+  return {
+    x1: from.x + tStart * dx,
+    y1: from.y + tStart * dy,
+    x2: from.x + tEnd * dx,
+    y2: from.y + tEnd * dy,
+  };
+}
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
 // (typiquement un point lumineux), c'est un montage va-et-vient : on bascule
@@ -103,24 +138,35 @@ export class LinksLayer {
     group.appendChild(hit);
 
     // Trait plein et continu, centre à centre (touche vraiment ses deux
-    // composants, sans vide ni pointillé sur le trajet), rendu dans le calque
-    // au-dessus des composants (jamais caché dessous, même sur un composant
-    // traversé en chemin) ; repli sur #links-layer si ce calque est absent.
+    // composants, sans vide ni pointillé sur le trajet). Rendu une première
+    // fois dans le calque de base (#links-layer, sous les composants) : ses
+    // deux bouts passent donc naturellement derrière leurs propres
+    // composants respectifs. Le milieu du trajet (hors emprise de ses deux
+    // extrémités) est en plus dupliqué dans le calque au-dessus des
+    // composants, pour rester visible s'il traverse un composant tiers en
+    // chemin plutôt que de disparaître dessous.
     const line = document.createElementNS(SVG_NS, "line");
     line.setAttribute("x1", from.x);
     line.setAttribute("y1", from.y);
     line.setAttribute("x2", to.x);
     line.setAttribute("y2", to.y);
     line.classList.add("liaison__line");
-    if (this.overlayLayerEl) {
+    group.appendChild(line);
+
+    const overlaySegment = this.overlayLayerEl && overlayRange(from, to);
+    if (overlaySegment) {
+      const overlayLine = document.createElementNS(SVG_NS, "line");
+      overlayLine.setAttribute("x1", overlaySegment.x1);
+      overlayLine.setAttribute("y1", overlaySegment.y1);
+      overlayLine.setAttribute("x2", overlaySegment.x2);
+      overlayLine.setAttribute("y2", overlaySegment.y2);
+      overlayLine.classList.add("liaison__line");
       const overlayGroup = document.createElementNS(SVG_NS, "g");
       overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
       overlayGroup.style.setProperty("--liaison-color", color);
       overlayGroup.style.pointerEvents = "none";
-      overlayGroup.appendChild(line);
+      overlayGroup.appendChild(overlayLine);
       this.overlayLayerEl.appendChild(overlayGroup);
-    } else {
-      group.appendChild(line);
     }
 
     const title = document.createElementNS(SVG_NS, "title");
