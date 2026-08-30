@@ -43,6 +43,7 @@ export const catalog = [
   { type: "electromenager_convecteur", label: "Convecteur électrique", category: "Électroménager", shape: "box", abbr: "CV", width: 60, height: 15 },
   { type: "electromenager_seche_serviette", label: "Sèche-serviette", category: "Électroménager", shape: "box", abbr: "SS", width: 50, height: 100 },
   { type: "electromenager_frigo", label: "Réfrigérateur", category: "Électroménager", shape: "box", abbr: "FR", width: 60, height: 60 },
+  { type: "electromenager_hotte", label: "Hotte aspirante", category: "Électroménager", shape: "box", abbr: "HT", width: 60, height: 30 },
   { type: "vmc", label: "VMC", category: "Électroménager", shape: "symbol", symbolId: "vmc" },
 
   // Pas électriques, mais utiles comme repères sur le plan (encombrement réel)
