@@ -86,9 +86,47 @@ export class ComponentsLayer {
   render() {
     this.layerEl.replaceChildren();
     if (!this.floorId) return;
-    for (const component of this.store.getComponentsForFloor(this.floorId)) {
+    const components = this.store.getComponentsForFloor(this.floorId);
+    for (const component of components) {
       this.layerEl.appendChild(this.renderComponent(component));
     }
+    // Pastilles de note en second passage, par-dessus tous les composants :
+    // même numérotation (ordre du floor, un commentaire = une note) que la
+    // légende à l'export (voir io/exportPlan.js), pour que le numéro d'une
+    // note reste le même en édition et sur le schéma exporté.
+    let noteNumber = 0;
+    for (const component of components) {
+      if (!component.comment || !component.comment.trim()) continue;
+      this.layerEl.appendChild(this.renderNoteMarker(component, ++noteNumber));
+    }
+  }
+
+  // Rendue hors du groupe (rotatif) du composant, en coordonnées absolues du
+  // plan, pour que la pastille reste toujours droite quel que soit l'angle
+  // du composant.
+  renderNoteMarker(component, number) {
+    const group = document.createElementNS(SVG_NS, "g");
+    group.classList.add("component-note-marker");
+    group.setAttribute("transform", `translate(${component.x + 14} ${component.y - 14})`);
+
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("r", 6);
+    circle.classList.add("component-note-marker__circle");
+    group.appendChild(circle);
+
+    const text = document.createElementNS(SVG_NS, "text");
+    text.textContent = String(number);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "central");
+    text.setAttribute("y", 0.5);
+    text.classList.add("component-note-marker__text");
+    group.appendChild(text);
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = `Note ${number} — ${component.comment}`;
+    group.appendChild(title);
+
+    return group;
   }
 
   renderComponent(component) {

@@ -11,9 +11,9 @@ const LEGEND_ICON_SIZE = 32;
 const LEGEND_ROW_HEIGHT = 50;
 const LEGEND_COL_WIDTH = 260;
 const LEGEND_TOP_PADDING = 40;
-const NOTE_MARKER_RADIUS = 7;
-const NOTE_ROW_HEIGHT = 20;
-const NOTES_TOP_PADDING = 32;
+const NOTE_MARKER_RADIUS = 6;
+const NOTE_ROW_HEIGHT = 16;
+const NOTES_TOP_PADDING = 28;
 
 function buildLegendIcon(entry) {
   const group = document.createElementNS(SVG_NS, "g");
@@ -127,21 +127,23 @@ function buildFootnoteMarker(number) {
   circle.setAttribute("r", NOTE_MARKER_RADIUS);
   circle.setAttribute("fill", "#d97706");
   circle.setAttribute("stroke", "#ffffff");
-  circle.setAttribute("stroke-width", "1.5");
+  circle.setAttribute("stroke-width", "1");
   group.appendChild(circle);
   const text = document.createElementNS(SVG_NS, "text");
   text.textContent = String(number);
   text.setAttribute("text-anchor", "middle");
   text.setAttribute("dominant-baseline", "central");
   text.setAttribute("fill", "#ffffff");
-  text.setAttribute("font", "700 9px sans-serif");
+  text.setAttribute("font", "700 7px sans-serif");
   group.appendChild(text);
   return group;
 }
 
 // Liste des commentaires des composants sous forme de notes numérotées : un
 // commentaire n'est sinon visible que dans le <title> (survol), invisible
-// dans un export statique (SVG isolé, PNG, PDF imprimé).
+// dans un export statique (SVG isolé, PNG, PDF imprimé). Taille distincte de
+// la légende (plus petite) : secondaire, et pour rester compact même avec
+// beaucoup de notes.
 function buildNotesGroup(notedComponents, originX, originY, width) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
@@ -149,23 +151,23 @@ function buildNotesGroup(notedComponents, originX, originY, width) {
   const title = document.createElementNS(SVG_NS, "text");
   title.textContent = "Notes";
   title.setAttribute("x", 0);
-  title.setAttribute("y", 16);
+  title.setAttribute("y", 14);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 16px sans-serif");
+  title.setAttribute("font", "700 14px sans-serif");
   group.appendChild(title);
 
   notedComponents.forEach(({ number, component, entry }, i) => {
     const rowY = NOTES_TOP_PADDING + i * NOTE_ROW_HEIGHT;
     const marker = buildFootnoteMarker(number);
-    marker.setAttribute("transform", `translate(${NOTE_MARKER_RADIUS}, ${rowY - 4})`);
+    marker.setAttribute("transform", `translate(${NOTE_MARKER_RADIUS}, ${rowY - 3})`);
     group.appendChild(marker);
 
     const text = document.createElementNS(SVG_NS, "text");
     text.textContent = `${component.label || entry?.label || component.type} — ${component.comment}`;
-    text.setAttribute("x", NOTE_MARKER_RADIUS * 2 + 8);
+    text.setAttribute("x", NOTE_MARKER_RADIUS * 2 + 6);
     text.setAttribute("y", rowY);
     text.setAttribute("fill", "#232a30");
-    text.setAttribute("font", "400 12px sans-serif");
+    text.setAttribute("font", "400 10px sans-serif");
     group.appendChild(text);
   });
 
@@ -188,6 +190,7 @@ function buildExportSvgString(stage, floor, store) {
   const roomFill = root.getPropertyValue("--color-room-fill").trim();
   const borderColor = root.getPropertyValue("--color-border").trim();
   const textMuted = root.getPropertyValue("--color-text-muted").trim();
+  const accentHover = root.getPropertyValue("--color-accent-hover").trim();
   const style = document.createElementNS(SVG_NS, "style");
   style.textContent = `
     .component { color: ${componentColor}; }
@@ -196,6 +199,8 @@ function buildExportSvgString(stage, floor, store) {
     .component__badge { fill: currentColor; font: 600 6px sans-serif; }
     .component__door-line { stroke: currentColor; stroke-width: 2; fill: none; }
     .component__door-arc { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+    .component-note-marker__circle { fill: ${accentHover}; stroke: ${bgPanel}; stroke-width: 1; }
+    .component-note-marker__text { fill: #fff; font: 700 7px sans-serif; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
     .wall__shape, .wall__joint { fill: ${planStroke}; stroke: none; }
     .opening__door-line { stroke: ${planStroke}; stroke-width: 2; fill: none; }
@@ -239,18 +244,14 @@ function buildExportSvgString(stage, floor, store) {
     .map((type) => getCatalogEntry(type))
     .filter((entry) => entry && entry.electrical !== false && entry.electrical !== "optional");
 
-  // Commentaires -> notes numérotées (voir buildNotesGroup) : un commentaire
-  // n'est sinon qu'un <title> au survol, invisible dans un export statique.
+  // Commentaires -> notes numérotées (voir buildNotesGroup) : la pastille sur
+  // le plan lui-même est déjà dans le clone (ComponentsLayer.renderNoteMarker
+  // la rend en direct, comme dans l'appli) ; reste à construire la liste en
+  // dessous de la légende, propre à l'export.
   const notedComponents = store
     .getComponentsForFloor(floor.id)
     .filter((c) => c.comment && c.comment.trim())
     .map((component, i) => ({ number: i + 1, component, entry: getCatalogEntry(component.type) }));
-
-  for (const { number, component } of notedComponents) {
-    const marker = buildFootnoteMarker(number);
-    marker.setAttribute("transform", `translate(${component.x + 16}, ${component.y - 16})`);
-    clone.appendChild(marker);
-  }
 
   let cursorY = y + height;
   if (usedEntries.length > 0) {

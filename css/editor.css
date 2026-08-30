@@ -550,6 +550,22 @@
   pointer-events: none;
 }
 
+.component-note-marker {
+  pointer-events: none;
+}
+
+.component-note-marker__circle {
+  fill: var(--color-accent-hover);
+  stroke: var(--color-bg-panel);
+  stroke-width: 1;
+}
+
+.component-note-marker__text {
+  fill: #fff;
+  font-size: 7px;
+  font-weight: 700;
+}
+
 .component__resize-handle {
   fill: var(--color-accent);
   stroke: #fff;
