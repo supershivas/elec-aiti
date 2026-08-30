@@ -68,14 +68,16 @@ export class Store {
     for (const listener of this.listeners) listener();
   }
 
-  // Flux d'actions séparé de onChange (qui ne dit pas CE QUI a changé) :
-  // permet un point d'écoute unique (les toasts, dans main.js) plutôt que de
-  // disperser des appels dans chaque endroit qui peut déclencher une
-  // suppression/duplication (raccourci clavier, bouton du panneau de
-  // propriétés, menu...). Volontairement réservé aux actions structurelles/
-  // ponctuelles (suppression, duplication, annuler/refaire, cycle de vie du
-  // projet) : pas la pose/l'édition continue (composant, mur...), qui a déjà
-  // un retour visuel immédiat et serait beaucoup trop bavarde en toasts.
+  // Flux d'actions séparé de onChange (qui ne dit pas CE QUI a changé) : permet
+  // un point d'écoute unique (main.js) plutôt que de disperser des appels dans
+  // chaque endroit qui peut déclencher une action (raccourci clavier, bouton du
+  // panneau de propriétés, menu...). Couvre toute action ponctuelle sur le
+  // projet (pose, suppression, duplication, annuler/refaire, cycle de vie du
+  // projet) : tout va dans le journal (Store.recordChange), mais main.js
+  // choisit lesquelles méritent en plus un toast (les poses restent muettes,
+  // trop fréquentes pour ça). Seule l'édition vraiment continue (glisser un
+  // composant, redimensionner...) n'émet rien, faute d'un instant précis où
+  // "l'action" serait terminée.
   onAction(listener) {
     this.actionListeners.add(listener);
     return () => this.actionListeners.delete(listener);
@@ -299,6 +301,11 @@ export class Store {
     const component = { id: createId("c"), type, floorId, x, y, rotation: 0, ...rest };
     this.state.components.push(component);
     this.notify();
+    // Muet (pas de toast, voir main.js/describeAction) : la pose reste un
+    // geste immédiat avec son propre retour visuel, mais doit quand même
+    // apparaître dans le journal (voir Store.recordChange) pour qu'il reflète
+    // vraiment tout ce qui a été fait sur le projet.
+    this.emitAction({ type: "component:added", componentType: type, label: rest.label });
     return component;
   }
 
@@ -376,6 +383,7 @@ export class Store {
     const liaison = { id: createId("l"), floorId, type, fromComponentId, toComponentId };
     this.state.liaisons.push(liaison);
     this.notify();
+    this.emitAction({ type: "liaison:added", linkType: type });
     return liaison;
   }
 
@@ -411,6 +419,7 @@ export class Store {
     const wall = { id: createId("w"), floorId, x1, y1, x2, y2, thicknessLeft, thicknessRight };
     this.state.walls.push(wall);
     this.notify();
+    this.emitAction({ type: "wall:added" });
     return wall;
   }
 
@@ -449,6 +458,7 @@ export class Store {
     const opening = { id: createId("o"), floorId, wallId, offset, width, type };
     this.state.openings.push(opening);
     this.notify();
+    this.emitAction({ type: "opening:added", openingType: type });
     return opening;
   }
 
@@ -482,6 +492,7 @@ export class Store {
     const room = { id: createId("r"), floorId, points, label };
     this.state.rooms.push(room);
     this.notify();
+    this.emitAction({ type: "room:added" });
     return room;
   }
 

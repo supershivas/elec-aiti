@@ -15,7 +15,8 @@ import { ChangeHistoryDialog } from "./editor/changeHistoryDialog.js";
 import { DiffLayer } from "./editor/diffLayer.js";
 import { MenuBar } from "./editor/menuBar.js";
 import { ScaleBar } from "./editor/scaleBar.js";
-import { linkTypes } from "./catalog/linkTypes.js";
+import { linkTypes, getLinkType } from "./catalog/linkTypes.js";
+import { getCatalogEntry } from "./catalog/components.js";
 import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
 import { exportProjectFile, importProjectFile, parseProjectFile } from "./io/projectFile.js";
@@ -37,6 +38,8 @@ const diffLayerEl = document.querySelector("#diff-layer");
 const propertiesPanelEl = document.querySelector("#properties-panel");
 const undoMenuButton = document.querySelector("#menu-undo");
 const redoMenuButton = document.querySelector("#menu-redo");
+const undoToolbarButton = document.querySelector("#btn-undo");
+const redoToolbarButton = document.querySelector("#btn-redo");
 const linkTypeSelectEl = document.querySelector("#link-type-select");
 const selectModeButtonEl = document.querySelector("#mode-select");
 const wallModeButtonEl = document.querySelector("#mode-wall");
@@ -194,11 +197,16 @@ function syncCrossHighlight() {
 function refreshUndoState() {
   undoMenuButton.disabled = !store.canUndo();
   if (redoMenuButton) redoMenuButton.disabled = !store.canRedo();
+  if (undoToolbarButton) undoToolbarButton.disabled = !store.canUndo();
+  if (redoToolbarButton) redoToolbarButton.disabled = !store.canRedo();
 }
 
-// Libellés des toasts déclenchés par le flux d'actions centralisé du Store
-// (voir Store.onAction) : un seul point pour ne rater aucune action (menu,
-// raccourci clavier, panneau de propriétés...).
+// Libellés des toasts + entrées du journal (voir Store.getChangeLog),
+// déclenchés par le flux d'actions centralisé du Store (Store.onAction) : un
+// seul point pour ne rater aucune action (menu, raccourci clavier, panneau de
+// propriétés...). `silent: true` = toujours consignée dans le journal, mais
+// sans toast (poses : geste immédiat et fréquent, déjà son propre retour
+// visuel, un toast à chaque clic serait trop bavard).
 function describeAction(action) {
   switch (action.type) {
     case "floor:added":
@@ -211,6 +219,8 @@ function describeAction(action) {
       return { message: `Étage "${action.label}" supprimé`, type: "danger" };
     case "floor:cleared":
       return { message: "Contenu de l'étage effacé", type: "danger" };
+    case "component:added":
+      return { message: `Composant ajouté : ${action.label || getCatalogEntry(action.componentType)?.label || action.componentType}`, silent: true };
     case "component:duplicated":
       return { message: "Composant dupliqué" };
     case "component:removed":
@@ -219,12 +229,20 @@ function describeAction(action) {
       return { message: "Composant ajouté sur l'autre étage" };
     case "component:unlinked":
       return { message: "Lien entre étages retiré" };
+    case "liaison:added":
+      return { message: `Liaison ajoutée : ${getLinkType(action.linkType)?.label || action.linkType}`, silent: true };
     case "liaison:removed":
       return { message: "Liaison supprimée", type: "danger" };
+    case "wall:added":
+      return { message: "Mur ajouté", silent: true };
     case "wall:removed":
       return { message: "Mur supprimé", type: "danger" };
+    case "opening:added":
+      return { message: `${action.openingType === "fenetre" ? "Fenêtre" : "Porte"} ajoutée`, silent: true };
     case "opening:removed":
       return { message: "Ouverture supprimée", type: "danger" };
+    case "room:added":
+      return { message: "Pièce ajoutée", silent: true };
     case "room:removed":
       return { message: "Pièce supprimée", type: "danger" };
     case "project:new":
@@ -245,7 +263,7 @@ const changeHistoryDialog = new ChangeHistoryDialog({ store });
 store.onAction((action) => {
   const described = describeAction(action);
   if (!described) return;
-  showToast(described.message, { type: described.type });
+  if (!described.silent) showToast(described.message, { type: described.type });
   store.recordChange(described.message, described.type);
   // Un nouveau projet ou un fichier ouvert n'a aucun rapport avec le fichier
   // comparé : une comparaison encore active deviendrait trompeuse (diff par
@@ -418,6 +436,9 @@ function redoAndSyncFloors() {
     switchToFloor(store.getFloors()[0].id);
   }
 }
+
+undoToolbarButton?.addEventListener("click", () => undoAndSyncFloors());
+redoToolbarButton?.addEventListener("click", () => redoAndSyncFloors());
 
 // Ctrl/Cmd+Z : annuler, Ctrl/Cmd+Shift+Z ou Ctrl/Cmd+Y : rétablir. Si le focus
 // est dans un champ de texte, on laisse le navigateur gérer son propre undo
