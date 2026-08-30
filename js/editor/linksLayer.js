@@ -20,25 +20,82 @@ function componentGapRadius(component) {
   return Math.max(width, height) / 2 + GAP_PADDING;
 }
 
-// Portion [tStart,tEnd] du trait (voir renderLiaison) à dupliquer au-dessus
-// des composants : le milieu du trajet, en excluant l'emprise de chacune de
-// ses deux propres extrémités (là, le trait ne doit rester que dans le
-// calque de base, donc passer derrière son propre composant).
-function overlayRange(from, to) {
+// Intersection d'un segment [x1,y1]-[x2,y2] avec le cercle (cx,cy,r) : renvoie
+// l'intervalle [t1,t2] (paramètre du segment, 0=départ, 1=arrivée) où le
+// segment est à l'intérieur du cercle, ou null s'il n'y entre pas.
+function segmentCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const fx = x1 - cx;
+  const fy = y1 - cy;
+  const a = dx * dx + dy * dy;
+  if (a === 0) return null;
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - r * r;
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+  const sqrtD = Math.sqrt(discriminant);
+  const t1 = Math.max(0, Math.min(1, (-b - sqrtD) / (2 * a)));
+  const t2 = Math.max(0, Math.min(1, (-b + sqrtD) / (2 * a)));
+  if (t1 >= t2) return null;
+  return [t1, t2];
+}
+
+function intersectRange(a, b) {
+  const start = Math.max(a[0], b[0]);
+  const end = Math.min(a[1], b[1]);
+  return end > start ? [start, end] : null;
+}
+
+function mergeRanges(ranges) {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+  const merged = [sorted[0]];
+  for (const [start, end] of sorted.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+// Portions [t1,t2] du trait (voir renderLiaison) à dupliquer au-dessus des
+// composants :
+// - le milieu du trajet, en excluant l'emprise de chacune de ses deux
+//   propres extrémités (là, le trait ne doit rester que dans le calque de
+//   base, donc passer derrière son propre composant) ;
+// - MAIS, dans cette emprise d'extrémité, la portion qui se trouve aussi
+//   sous un composant tiers (ex: un plafonnier posé par-dessus un
+//   électroménager) : sans ça, ce composant tiers — pas le sien — cache le
+//   trait juste avant qu'il n'atteigne sa propre cible, qui semble alors ne
+//   jamais y arriver.
+function overlaySegments(from, to, otherComponents) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const totalLength = Math.hypot(dx, dy);
-  if (totalLength === 0) return null;
+  if (totalLength === 0) return [[0, 1]];
 
   let tStart = Math.min(0.49, componentGapRadius(from) / totalLength);
   let tEnd = 1 - Math.min(0.49, componentGapRadius(to) / totalLength);
-  if (tStart >= tEnd) return null; // composants trop proches/superposés : pas de milieu à isoler
-  return {
-    x1: from.x + tStart * dx,
-    y1: from.y + tStart * dy,
-    x2: from.x + tEnd * dx,
-    y2: from.y + tEnd * dy,
-  };
+  if (tStart >= tEnd) {
+    tStart = 0;
+    tEnd = 1;
+  }
+
+  const ranges = tEnd > tStart ? [[tStart, tEnd]] : [];
+  for (const component of otherComponents) {
+    const crossing = segmentCircleIntersection(from.x, from.y, to.x, to.y, component.x, component.y, componentGapRadius(component));
+    if (!crossing) continue;
+    if (tStart > 0) {
+      const overlap = intersectRange(crossing, [0, tStart]);
+      if (overlap) ranges.push(overlap);
+    }
+    if (tEnd < 1) {
+      const overlap = intersectRange(crossing, [tEnd, 1]);
+      if (overlap) ranges.push(overlap);
+    }
+  }
+  return mergeRanges(ranges);
 }
 
 // Si un deuxième interrupteur/commande se retrouve câblé sur le même élément
@@ -112,7 +169,8 @@ export class LinksLayer {
       const from = findComponent(liaison.fromComponentId);
       const to = findComponent(liaison.toComponentId);
       if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
-      this.renderLiaison(liaison, from, to);
+      const others = components.filter((c) => c.id !== from.id && c.id !== to.id);
+      this.renderLiaison(liaison, from, to, others);
       const number = noteNumbers.get(liaison.id);
       if (number) this.renderNoteMarker(liaison, from, to, number);
     }
@@ -147,7 +205,7 @@ export class LinksLayer {
     target.appendChild(group);
   }
 
-  renderLiaison(liaison, from, to) {
+  renderLiaison(liaison, from, to, otherComponents = []) {
     const linkType = getLinkType(liaison.type);
     const color = this.resolveColor(linkType);
     const stateClasses = [];
@@ -188,20 +246,26 @@ export class LinksLayer {
     line.classList.add("liaison__line");
     group.appendChild(line);
 
-    const overlaySegment = this.overlayLayerEl && overlayRange(from, to);
-    if (overlaySegment) {
-      const overlayLine = document.createElementNS(SVG_NS, "line");
-      overlayLine.setAttribute("x1", overlaySegment.x1);
-      overlayLine.setAttribute("y1", overlaySegment.y1);
-      overlayLine.setAttribute("x2", overlaySegment.x2);
-      overlayLine.setAttribute("y2", overlaySegment.y2);
-      overlayLine.classList.add("liaison__line");
-      const overlayGroup = document.createElementNS(SVG_NS, "g");
-      overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
-      overlayGroup.style.setProperty("--liaison-color", color);
-      overlayGroup.style.pointerEvents = "none";
-      overlayGroup.appendChild(overlayLine);
-      this.overlayLayerEl.appendChild(overlayGroup);
+    if (this.overlayLayerEl) {
+      const segments = overlaySegments(from, to, otherComponents);
+      if (segments.length > 0) {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const overlayGroup = document.createElementNS(SVG_NS, "g");
+        overlayGroup.classList.add("liaison", "liaison--overlay", ...stateClasses);
+        overlayGroup.style.setProperty("--liaison-color", color);
+        overlayGroup.style.pointerEvents = "none";
+        for (const [t1, t2] of segments) {
+          const overlayLine = document.createElementNS(SVG_NS, "line");
+          overlayLine.setAttribute("x1", from.x + t1 * dx);
+          overlayLine.setAttribute("y1", from.y + t1 * dy);
+          overlayLine.setAttribute("x2", from.x + t2 * dx);
+          overlayLine.setAttribute("y2", from.y + t2 * dy);
+          overlayLine.classList.add("liaison__line");
+          overlayGroup.appendChild(overlayLine);
+        }
+        this.overlayLayerEl.appendChild(overlayGroup);
+      }
     }
 
     const title = document.createElementNS(SVG_NS, "title");
