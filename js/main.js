@@ -180,6 +180,9 @@ propertiesPanel = new PropertiesPanel({
     componentsLayer.select(componentId);
     stage.centerOn(component.x, component.y);
   },
+  // Bouton "Ajouter une liaison" du panneau de propriétés : même geste que le
+  // 2e clic sur un composant déjà sélectionné (voir ComponentsLayer.handleComponentClick).
+  onAddLiaison: (component) => linksLayer.beginFrom(component, linkTypeSelectEl.value),
 });
 
 // Met en surbrillance les liaisons connectées au composant actuellement

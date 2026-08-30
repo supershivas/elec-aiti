@@ -268,7 +268,14 @@ export class ComponentsLayer {
   handleComponentClick(componentId) {
     const component = this.store.getComponentsForFloor(this.floorId).find((c) => c.id === componentId);
     if (!component) return;
+    // Un premier clic sélectionne seulement (sinon on démarre une liaison
+    // sans le vouloir juste en regardant les propriétés d'un composant) : la
+    // proposition de liaison n'arrive qu'au 2e clic sur ce même composant déjà
+    // sélectionné, ou via le bouton "Ajouter une liaison" du panneau de
+    // propriétés (voir PropertiesPanel.onAddLiaison).
+    const alreadySelected = this.selectedId === componentId;
     this.select(componentId);
+    if (!alreadySelected) return;
     // Pas de proposition de liaison si on est en train de poser un autre
     // composant depuis la palette (ça n'aurait pas de sens), ni pour un
     // élément non électrifié (porte, cloison, meuble non coché "Électrifié").

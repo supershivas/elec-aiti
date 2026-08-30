@@ -36,6 +36,7 @@ export const catalog = [
 
   { type: "electromenager_four", label: "Four", category: "Électroménager", shape: "box", abbr: "F", width: 60, height: 60 },
   { type: "electromenager_plaque", label: "Plaque de cuisson", category: "Électroménager", shape: "box", abbr: "PL", width: 60, height: 60 },
+  { type: "electromenager_four_plaque", label: "Four + plaque (cuisinière)", category: "Électroménager", shape: "box", abbr: "F+P", width: 60, height: 60 },
   { type: "electromenager_lave_linge", label: "Lave-linge", category: "Électroménager", shape: "box", abbr: "LL", width: 60, height: 60 },
   { type: "electromenager_lave_vaisselle", label: "Lave-vaisselle", category: "Électroménager", shape: "box", abbr: "LV", width: 60, height: 60 },
   { type: "electromenager_chauffe_eau", label: "Chauffe-eau (cumulus)", category: "Électroménager", shape: "box", abbr: "CE", width: 50, height: 50 },

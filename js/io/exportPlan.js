@@ -11,6 +11,9 @@ const LEGEND_ICON_SIZE = 32;
 const LEGEND_ROW_HEIGHT = 50;
 const LEGEND_COL_WIDTH = 260;
 const LEGEND_TOP_PADDING = 40;
+const NOTE_MARKER_RADIUS = 7;
+const NOTE_ROW_HEIGHT = 20;
+const NOTES_TOP_PADDING = 32;
 
 function buildLegendIcon(entry) {
   const group = document.createElementNS(SVG_NS, "g");
@@ -115,6 +118,61 @@ function buildLegendGroup(usedEntries, originX, originY, width) {
   return { group, height };
 }
 
+// Pastille numérotée façon "note de bas de page" (voir buildNotesGroup),
+// dupliquée à l'identique sur le plan (à côté du composant commenté) et dans
+// la liste de notes en dessous de la légende.
+function buildFootnoteMarker(number) {
+  const group = document.createElementNS(SVG_NS, "g");
+  const circle = document.createElementNS(SVG_NS, "circle");
+  circle.setAttribute("r", NOTE_MARKER_RADIUS);
+  circle.setAttribute("fill", "#d97706");
+  circle.setAttribute("stroke", "#ffffff");
+  circle.setAttribute("stroke-width", "1.5");
+  group.appendChild(circle);
+  const text = document.createElementNS(SVG_NS, "text");
+  text.textContent = String(number);
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "central");
+  text.setAttribute("fill", "#ffffff");
+  text.setAttribute("font", "700 9px sans-serif");
+  group.appendChild(text);
+  return group;
+}
+
+// Liste des commentaires des composants sous forme de notes numérotées : un
+// commentaire n'est sinon visible que dans le <title> (survol), invisible
+// dans un export statique (SVG isolé, PNG, PDF imprimé).
+function buildNotesGroup(notedComponents, originX, originY, width) {
+  const group = document.createElementNS(SVG_NS, "g");
+  group.setAttribute("transform", `translate(${originX}, ${originY})`);
+
+  const title = document.createElementNS(SVG_NS, "text");
+  title.textContent = "Notes";
+  title.setAttribute("x", 0);
+  title.setAttribute("y", 16);
+  title.setAttribute("fill", "#232a30");
+  title.setAttribute("font", "700 16px sans-serif");
+  group.appendChild(title);
+
+  notedComponents.forEach(({ number, component, entry }, i) => {
+    const rowY = NOTES_TOP_PADDING + i * NOTE_ROW_HEIGHT;
+    const marker = buildFootnoteMarker(number);
+    marker.setAttribute("transform", `translate(${NOTE_MARKER_RADIUS}, ${rowY - 4})`);
+    group.appendChild(marker);
+
+    const text = document.createElementNS(SVG_NS, "text");
+    text.textContent = `${component.label || entry?.label || component.type} — ${component.comment}`;
+    text.setAttribute("x", NOTE_MARKER_RADIUS * 2 + 8);
+    text.setAttribute("y", rowY);
+    text.setAttribute("fill", "#232a30");
+    text.setAttribute("font", "400 12px sans-serif");
+    group.appendChild(text);
+  });
+
+  const height = NOTES_TOP_PADDING + notedComponents.length * NOTE_ROW_HEIGHT;
+  return { group, height };
+}
+
 function buildExportSvgString(stage, floor, store) {
   const clone = stage.svgEl.cloneNode(true);
   const { x, y, width, height } = stage.baseViewBox;
@@ -181,13 +239,33 @@ function buildExportSvgString(stage, floor, store) {
     .map((type) => getCatalogEntry(type))
     .filter((entry) => entry && entry.electrical !== false && entry.electrical !== "optional");
 
-  let totalHeight = height;
+  // Commentaires -> notes numérotées (voir buildNotesGroup) : un commentaire
+  // n'est sinon qu'un <title> au survol, invisible dans un export statique.
+  const notedComponents = store
+    .getComponentsForFloor(floor.id)
+    .filter((c) => c.comment && c.comment.trim())
+    .map((component, i) => ({ number: i + 1, component, entry: getCatalogEntry(component.type) }));
+
+  for (const { number, component } of notedComponents) {
+    const marker = buildFootnoteMarker(number);
+    marker.setAttribute("transform", `translate(${component.x + 16}, ${component.y - 16})`);
+    clone.appendChild(marker);
+  }
+
+  let cursorY = y + height;
   if (usedEntries.length > 0) {
     const legendGap = 24;
-    const { group: legendGroup, height: legendHeight } = buildLegendGroup(usedEntries, x, y + height + legendGap, width);
+    const { group: legendGroup, height: legendHeight } = buildLegendGroup(usedEntries, x, cursorY + legendGap, width);
     clone.appendChild(legendGroup);
-    totalHeight = height + legendGap + legendHeight;
+    cursorY += legendGap + legendHeight;
   }
+  if (notedComponents.length > 0) {
+    const notesGap = 24;
+    const { group: notesGroup, height: notesHeight } = buildNotesGroup(notedComponents, x, cursorY + notesGap, width);
+    clone.appendChild(notesGroup);
+    cursorY += notesGap + notesHeight;
+  }
+  const totalHeight = cursorY - y;
 
   clone.setAttribute("viewBox", `${x} ${y} ${width} ${totalHeight}`);
   clone.setAttribute("width", String(width));

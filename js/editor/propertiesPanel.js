@@ -14,7 +14,7 @@ function field(labelText, inputEl) {
 // Panneau de propriétés du composant ou de la liaison sélectionné(e).
 // Se contente de relire l'état courant à chaque refresh() : pas d'état interne.
 export class PropertiesPanel {
-  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, roomsLayer, onGoToLinkedComponent }) {
+  constructor({ containerEl, store, componentsLayer, linksLayer, wallsLayer, roomsLayer, onGoToLinkedComponent, onAddLiaison }) {
     this.containerEl = containerEl;
     this.store = store;
     this.componentsLayer = componentsLayer;
@@ -22,6 +22,7 @@ export class PropertiesPanel {
     this.wallsLayer = wallsLayer;
     this.roomsLayer = roomsLayer;
     this.onGoToLinkedComponent = onGoToLinkedComponent;
+    this.onAddLiaison = onAddLiaison;
   }
 
   refresh() {
@@ -207,6 +208,18 @@ export class PropertiesPanel {
         this.store.updateComponent(component.id, { comment: value });
       }),
     );
+
+    // Le 2e clic sur le composant déjà sélectionné propose aussi une liaison
+    // (voir ComponentsLayer.handleComponentClick) : ce bouton est l'équivalent
+    // explicite, pour qui préfère ne pas re-cliquer sur le plan.
+    if (isElectrifiable(component, entry)) {
+      const addLiaisonBtn = document.createElement("button");
+      addLiaisonBtn.type = "button";
+      addLiaisonBtn.className = "toolbar__button";
+      addLiaisonBtn.textContent = "Ajouter une liaison";
+      addLiaisonBtn.addEventListener("click", () => this.onAddLiaison?.(component));
+      this.containerEl.appendChild(addLiaisonBtn);
+    }
 
     this.renderLiaisonsSection(component);
     this.renderMultiFloorSection(component);
