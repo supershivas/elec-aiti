@@ -238,13 +238,16 @@ exports (SVG/PNG/PDF).
 Un interrupteur double/triple... n'est pas une entrée de catalogue par variante mais un
 groupe : des composants de la famille Commandes (interrupteur simple, va-et-vient,
 poussoir, variateur) partageant un `groupId`, avec l'entité de groupe elle-même
-(`{ id, floorId, comment? }`) dans `state.groups`. Panneau de propriétés : bouton
-"Grouper avec un autre interrupteur" (clic-cible sur le plan, même mécanique que "Ajouter
-une liaison") ; une fois groupé, "Ajouter un autre interrupteur au groupe" (rejoint le même
-groupe), "Retirer du groupe" et un champ de note propre au groupe. Un groupe de moins de 2
-membres est automatiquement dissous (composant retiré ou supprimé). Rendu
-(`ComponentsLayer.renderGroupRect`) : rectangle pointillé englobant les centres des
-composants du groupe, sous les pictogrammes.
+(`{ id, floorId, comment?, switchKind?, orientation? }`) dans `state.groups`. Panneau de
+propriétés : bouton "Grouper avec un autre interrupteur" (clic-cible sur le plan, même
+mécanique que "Ajouter une liaison") ; une fois groupé, "Ajouter un autre interrupteur au
+groupe" (rejoint le même groupe), "Retirer du groupe", deux sélecteurs facultatifs — "Type
+d'interrupteur" (ex: "Double allumage" pour un groupe de 2, "Triple allumage" pour 3, voir
+`catalog/groupKinds.js`) et "Placement" (horizontal/vertical) — et un champ de note propre
+au groupe. Un groupe de moins de 2 membres est automatiquement dissous (composant retiré ou
+supprimé). Rendu (`ComponentsLayer.renderGroupRect`) : rectangle pointillé englobant les
+centres des composants du groupe, sous les pictogrammes, avec une étiquette optionnelle
+sous le cadre (`buildGroupKindLabel`) reprenant type/placement quand renseignés.
 
 ## Catalogue de composants initial (v1)
 Prises (simple, double, étanche, + prises spécialisées plaque/four/lave-linge/

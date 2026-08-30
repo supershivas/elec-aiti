@@ -1,5 +1,6 @@
 import { catalog, getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { linkTypes, getLinkType } from "../catalog/linkTypes.js";
+import { SWITCH_KIND_LABELS } from "../catalog/groupKinds.js";
 
 function field(labelText, inputEl) {
   const wrapper = document.createElement("label");
@@ -247,6 +248,44 @@ export class PropertiesPanel {
       const names = members.map((m) => m.label || getCatalogEntry(m.type)?.label || m.type).join(", ");
       info.textContent = `Groupé avec : ${names}.`;
       this.containerEl.appendChild(info);
+
+      // Type d'appareillage et placement physique du groupe : facultatifs,
+      // juste pour documenter le schéma (ex: "double allumage" = deux
+      // circuits séparés commandés depuis une même plaque à 2 postes).
+      const kindLabel = SWITCH_KIND_LABELS[members.length];
+      if (kindLabel) {
+        const kindSelect = document.createElement("select");
+        const noneOption = document.createElement("option");
+        noneOption.value = "";
+        noneOption.textContent = "Non précisé";
+        kindSelect.appendChild(noneOption);
+        const kindOption = document.createElement("option");
+        kindOption.value = "grouped";
+        kindOption.textContent = kindLabel;
+        kindSelect.appendChild(kindOption);
+        kindSelect.value = group.switchKind ? "grouped" : "";
+        kindSelect.addEventListener("change", () => {
+          this.store.updateGroup(group.id, { switchKind: kindSelect.value || undefined });
+        });
+        this.containerEl.appendChild(field("Type d'interrupteur", kindSelect));
+      }
+
+      const orientationSelect = document.createElement("select");
+      for (const [value, label] of [
+        ["", "Non précisé"],
+        ["horizontal", "Horizontal"],
+        ["vertical", "Vertical"],
+      ]) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        if ((group.orientation || "") === value) option.selected = true;
+        orientationSelect.appendChild(option);
+      }
+      orientationSelect.addEventListener("change", () => {
+        this.store.updateGroup(group.id, { orientation: orientationSelect.value || undefined });
+      });
+      this.containerEl.appendChild(field("Placement", orientationSelect));
 
       this.containerEl.appendChild(
         this.buildCommentField(group.comment, (value) => {

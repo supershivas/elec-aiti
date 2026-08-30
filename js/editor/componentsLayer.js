@@ -3,6 +3,7 @@ import { isEditingText } from "./domUtils.js";
 import { snapPosition } from "./snapping.js";
 import { promptFurnitureDetails } from "./furnitureDialog.js";
 import { getNotedItems, noteNumbersByKind } from "./notesRegistry.js";
+import { SWITCH_KIND_LABELS } from "../catalog/groupKinds.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
@@ -103,6 +104,8 @@ export class ComponentsLayer {
       const members = this.store.getComponentsInGroup(group.id);
       if (members.length < 2) continue;
       this.layerEl.appendChild(this.renderGroupRect(group, members));
+      const kindOrOrientation = this.buildGroupKindLabel(group, members);
+      if (kindOrOrientation) this.layerEl.appendChild(kindOrOrientation);
       const number = groupNoteNumbers.get(group.id);
       if (number) {
         const maxX = Math.max(...members.map((c) => c.x));
@@ -143,6 +146,30 @@ export class ComponentsLayer {
     rect.classList.add("component-group__rect");
     rect.dataset.groupId = group.id;
     return rect;
+  }
+
+  // Étiquette facultative sous le cadre de groupe : type d'appareillage
+  // ("Double allumage"...) et/ou placement (horizontal/vertical), tous deux
+  // purement documentaires (voir PropertiesPanel.renderGroupSection).
+  buildGroupKindLabel(group, members) {
+    const parts = [];
+    if (group.switchKind) parts.push(SWITCH_KIND_LABELS[members.length] || "Groupé");
+    if (group.orientation === "horizontal") parts.push("horizontal");
+    if (group.orientation === "vertical") parts.push("vertical");
+    if (parts.length === 0) return null;
+
+    const xs = members.map((c) => c.x);
+    const ys = members.map((c) => c.y);
+    const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const bottomY = Math.max(...ys) + GROUP_PADDING;
+
+    const text = document.createElementNS(SVG_NS, "text");
+    text.textContent = parts.join(" · ");
+    text.setAttribute("x", centerX);
+    text.setAttribute("y", bottomY + 11);
+    text.setAttribute("text-anchor", "middle");
+    text.classList.add("component-group__label");
+    return text;
   }
 
   // Rendue hors du groupe (rotatif) du composant, en coordonnées absolues du

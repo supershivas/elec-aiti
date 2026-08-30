@@ -574,6 +574,15 @@
   pointer-events: none;
 }
 
+.component-group__label {
+  fill: var(--color-text-muted);
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
 .component__resize-handle {
   fill: var(--color-accent);
   stroke: #fff;

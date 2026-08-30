@@ -107,16 +107,18 @@ function buildLegendGroup(categories, originX, originY, width, mutedColor) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
 
+  // Titre façon "h1" : nettement plus affirmé que les sous-titres de
+  // catégorie, pour bien identifier la légende d'un coup d'œil.
   const title = document.createElementNS(SVG_NS, "text");
   title.textContent = "Légende";
   title.setAttribute("x", 0);
-  title.setAttribute("y", 14);
+  title.setAttribute("y", 20);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 13px sans-serif");
+  title.setAttribute("font", "700 20px sans-serif");
   group.appendChild(title);
 
   const columns = Math.max(1, Math.floor(width / LEGEND_COL_WIDTH));
-  let cursorY = LEGEND_TOP_PADDING;
+  let cursorY = LEGEND_TOP_PADDING + 10;
 
   categories.forEach(({ category, items }) => {
     const heading = document.createElementNS(SVG_NS, "text");
@@ -188,9 +190,9 @@ function buildNotesGroup(notedItems, originX, originY, width) {
   const title = document.createElementNS(SVG_NS, "text");
   title.textContent = "Notes";
   title.setAttribute("x", 0);
-  title.setAttribute("y", 14);
+  title.setAttribute("y", 15);
   title.setAttribute("fill", "#232a30");
-  title.setAttribute("font", "700 14px sans-serif");
+  title.setAttribute("font", "700 15px sans-serif");
   group.appendChild(title);
 
   notedItems.forEach(({ number, label, comment }, i) => {
@@ -239,6 +241,7 @@ function buildExportSvgString(stage, floor, store) {
     .component-note-marker__circle { fill: ${accentHover}; stroke: ${bgPanel}; stroke-width: 1; }
     .component-note-marker__text { fill: #fff; font: 700 7px sans-serif; }
     .component-group__rect { fill: none; stroke: ${textMuted}; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .component-group__label { fill: ${textMuted}; font: 600 8px sans-serif; text-transform: uppercase; letter-spacing: 0.03em; }
     .liaison__line { stroke: var(--liaison-color, ${componentColor}); stroke-width: 3; stroke-linecap: round; }
     .wall__shape, .wall__joint { fill: ${planStroke}; stroke: none; }
     .opening__door-line { stroke: ${planStroke}; stroke-width: 2; fill: none; }
@@ -311,18 +314,30 @@ function buildExportSvgString(stage, floor, store) {
   // à l'export.
   const notedItems = getNotedItems(store, floor.id);
 
+  // Légende à gauche, notes à droite, sur la même bande sous le plan (au lieu
+  // d'un empilement vertical) : réduit nettement la hauteur totale pour que
+  // le schéma + légende + notes tiennent sur une seule page à l'impression.
   let cursorY = y + height;
-  if (legendCategories.length > 0) {
-    const legendGap = 24;
-    const { group: legendGroup, height: legendHeight } = buildLegendGroup(legendCategories, x, cursorY + legendGap, width, textMuted);
-    clone.appendChild(legendGroup);
-    cursorY += legendGap + legendHeight;
-  }
-  if (notedItems.length > 0) {
-    const notesGap = 24;
-    const { group: notesGroup, height: notesHeight } = buildNotesGroup(notedItems, x, cursorY + notesGap, width);
-    clone.appendChild(notesGroup);
-    cursorY += notesGap + notesHeight;
+  const footerGap = 24;
+  const columnGap = 32;
+  if (legendCategories.length > 0 || notedItems.length > 0) {
+    const hasBothColumns = legendCategories.length > 0 && notedItems.length > 0;
+    const legendWidth = hasBothColumns ? width * 0.6 - columnGap / 2 : width;
+    const notesWidth = hasBothColumns ? width * 0.4 - columnGap / 2 : width;
+    const notesX = x + legendWidth + columnGap;
+
+    let sectionHeight = 0;
+    if (legendCategories.length > 0) {
+      const { group: legendGroup, height: legendHeight } = buildLegendGroup(legendCategories, x, cursorY + footerGap, legendWidth, textMuted);
+      clone.appendChild(legendGroup);
+      sectionHeight = Math.max(sectionHeight, legendHeight);
+    }
+    if (notedItems.length > 0) {
+      const { group: notesGroup, height: notesHeight } = buildNotesGroup(notedItems, notesX, cursorY + footerGap, notesWidth);
+      clone.appendChild(notesGroup);
+      sectionHeight = Math.max(sectionHeight, notesHeight);
+    }
+    cursorY += footerGap + sectionHeight;
   }
   const totalHeight = cursorY - y;
 
