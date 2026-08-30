@@ -4,6 +4,7 @@
 // d'impression du navigateur ("Enregistrer en PDF"), pour éviter d'ajouter
 // une librairie de génération PDF juste pour ce besoin.
 import { getCatalogEntry } from "../catalog/components.js";
+import { getLinkType } from "../catalog/linkTypes.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -79,9 +80,25 @@ function buildLegendIcon(entry) {
   return group;
 }
 
-// Légende des seuls types de composants réellement posés sur l'étage exporté
-// (pas tout le catalogue), en grille sous le plan.
-function buildLegendGroup(usedEntries, originX, originY, width) {
+// Icône de légende pour un type de liaison : un court trait de sa couleur,
+// même style que sur le plan (.liaison__line), pour décoder les couleurs de
+// circuit (ex: vert = prises, bleu = va-et-vient/éclairage...).
+function buildLinkTypeLegendIcon(color) {
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", -LEGEND_ICON_SIZE / 2);
+  line.setAttribute("y1", 0);
+  line.setAttribute("x2", LEGEND_ICON_SIZE / 2);
+  line.setAttribute("y2", 0);
+  line.setAttribute("stroke", color);
+  line.setAttribute("stroke-width", "3");
+  line.setAttribute("stroke-linecap", "round");
+  return line;
+}
+
+// Légende des seuls types de composants réellement posés et types de
+// liaisons réellement tracées sur l'étage exporté (pas tout le catalogue),
+// en grille sous le plan.
+function buildLegendGroup(items, originX, originY, width) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
 
@@ -94,18 +111,17 @@ function buildLegendGroup(usedEntries, originX, originY, width) {
   group.appendChild(title);
 
   const columns = Math.max(1, Math.floor(width / LEGEND_COL_WIDTH));
-  usedEntries.forEach((entry, i) => {
+  items.forEach(({ label: itemLabel, icon }, i) => {
     const col = i % columns;
     const row = Math.floor(i / columns);
     const itemX = col * LEGEND_COL_WIDTH;
     const itemY = LEGEND_TOP_PADDING + row * LEGEND_ROW_HEIGHT;
 
-    const icon = buildLegendIcon(entry);
     icon.setAttribute("transform", `translate(${itemX + LEGEND_ICON_SIZE / 2}, ${itemY + LEGEND_ICON_SIZE / 2})`);
     group.appendChild(icon);
 
     const label = document.createElementNS(SVG_NS, "text");
-    label.textContent = entry.label;
+    label.textContent = itemLabel;
     label.setAttribute("x", itemX + LEGEND_ICON_SIZE + 12);
     label.setAttribute("y", itemY + LEGEND_ICON_SIZE / 2 + 4);
     label.setAttribute("fill", "#232a30");
@@ -113,7 +129,7 @@ function buildLegendGroup(usedEntries, originX, originY, width) {
     group.appendChild(label);
   });
 
-  const rows = Math.ceil(usedEntries.length / columns);
+  const rows = Math.ceil(items.length / columns);
   const height = LEGEND_TOP_PADDING + rows * LEGEND_ROW_HEIGHT;
   return { group, height };
 }
@@ -244,6 +260,18 @@ function buildExportSvgString(stage, floor, store) {
     .map((type) => getCatalogEntry(type))
     .filter((entry) => entry && entry.electrical !== false && entry.electrical !== "optional");
 
+  // Types de liaisons réellement tracées sur l'étage (pas tout le catalogue),
+  // pour décoder les couleurs de circuit sans avoir à deviner.
+  const usedLinkTypes = [...new Set(store.getLiaisonsForFloor(floor.id).map((l) => l.type))].map(getLinkType).filter(Boolean);
+
+  const legendItems = [
+    ...usedEntries.map((entry) => ({ label: entry.label, icon: buildLegendIcon(entry) })),
+    ...usedLinkTypes.map((linkType) => ({
+      label: linkType.label,
+      icon: buildLinkTypeLegendIcon(root.getPropertyValue(linkType.colorVar).trim()),
+    })),
+  ];
+
   // Commentaires -> notes numérotées (voir buildNotesGroup) : la pastille sur
   // le plan lui-même est déjà dans le clone (ComponentsLayer.renderNoteMarker
   // la rend en direct, comme dans l'appli) ; reste à construire la liste en
@@ -254,9 +282,9 @@ function buildExportSvgString(stage, floor, store) {
     .map((component, i) => ({ number: i + 1, component, entry: getCatalogEntry(component.type) }));
 
   let cursorY = y + height;
-  if (usedEntries.length > 0) {
+  if (legendItems.length > 0) {
     const legendGap = 24;
-    const { group: legendGroup, height: legendHeight } = buildLegendGroup(usedEntries, x, cursorY + legendGap, width);
+    const { group: legendGroup, height: legendHeight } = buildLegendGroup(legendItems, x, cursorY + legendGap, width);
     clone.appendChild(legendGroup);
     cursorY += legendGap + legendHeight;
   }
