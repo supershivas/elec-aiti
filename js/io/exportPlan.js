@@ -368,7 +368,7 @@ function buildExportSvgString(stage, floor, store) {
   // d'un empilement vertical) : réduit nettement la hauteur totale pour que
   // le schéma + légende + notes tiennent sur une seule page à l'impression.
   let cursorY = y + height;
-  const footerGap = 24;
+  const footerGap = 10;
   const columnGap = 32;
   if (legendCategories.length > 0 || notedItems.length > 0) {
     const hasBothColumns = legendCategories.length > 0 && notedItems.length > 0;
