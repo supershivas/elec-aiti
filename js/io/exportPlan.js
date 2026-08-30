@@ -5,6 +5,7 @@
 // une librairie de génération PDF juste pour ce besoin.
 import { getCatalogEntry } from "../catalog/components.js";
 import { getLinkType } from "../catalog/linkTypes.js";
+import { getNotedItems } from "../editor/notesRegistry.js";
 import { downloadBlob } from "./download.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -160,7 +161,7 @@ function buildFootnoteMarker(number) {
 // dans un export statique (SVG isolé, PNG, PDF imprimé). Taille distincte de
 // la légende (plus petite) : secondaire, et pour rester compact même avec
 // beaucoup de notes.
-function buildNotesGroup(notedComponents, originX, originY, width) {
+function buildNotesGroup(notedItems, originX, originY, width) {
   const group = document.createElementNS(SVG_NS, "g");
   group.setAttribute("transform", `translate(${originX}, ${originY})`);
 
@@ -172,14 +173,14 @@ function buildNotesGroup(notedComponents, originX, originY, width) {
   title.setAttribute("font", "700 14px sans-serif");
   group.appendChild(title);
 
-  notedComponents.forEach(({ number, component, entry }, i) => {
+  notedItems.forEach(({ number, label, comment }, i) => {
     const rowY = NOTES_TOP_PADDING + i * NOTE_ROW_HEIGHT;
     const marker = buildFootnoteMarker(number);
     marker.setAttribute("transform", `translate(${NOTE_MARKER_RADIUS}, ${rowY - 3})`);
     group.appendChild(marker);
 
     const text = document.createElementNS(SVG_NS, "text");
-    text.textContent = `${component.label || entry?.label || component.type} — ${component.comment}`;
+    text.textContent = `${label} — ${comment}`;
     text.setAttribute("x", NOTE_MARKER_RADIUS * 2 + 6);
     text.setAttribute("y", rowY);
     text.setAttribute("fill", "#232a30");
@@ -187,7 +188,7 @@ function buildNotesGroup(notedComponents, originX, originY, width) {
     group.appendChild(text);
   });
 
-  const height = NOTES_TOP_PADDING + notedComponents.length * NOTE_ROW_HEIGHT;
+  const height = NOTES_TOP_PADDING + notedItems.length * NOTE_ROW_HEIGHT;
   return { group, height };
 }
 
@@ -272,14 +273,12 @@ function buildExportSvgString(stage, floor, store) {
     })),
   ];
 
-  // Commentaires -> notes numérotées (voir buildNotesGroup) : la pastille sur
-  // le plan lui-même est déjà dans le clone (ComponentsLayer.renderNoteMarker
-  // la rend en direct, comme dans l'appli) ; reste à construire la liste en
-  // dessous de la légende, propre à l'export.
-  const notedComponents = store
-    .getComponentsForFloor(floor.id)
-    .filter((c) => c.comment && c.comment.trim())
-    .map((component, i) => ({ number: i + 1, component, entry: getCatalogEntry(component.type) }));
+  // Commentaires (composants et liaisons) -> notes numérotées (voir
+  // buildNotesGroup) : les pastilles sur le plan lui-même sont déjà dans le
+  // clone (ComponentsLayer/LinksLayer les rendent en direct, comme dans
+  // l'appli) ; reste à construire la liste en dessous de la légende, propre
+  // à l'export.
+  const notedItems = getNotedItems(store, floor.id);
 
   let cursorY = y + height;
   if (legendItems.length > 0) {
@@ -288,9 +287,9 @@ function buildExportSvgString(stage, floor, store) {
     clone.appendChild(legendGroup);
     cursorY += legendGap + legendHeight;
   }
-  if (notedComponents.length > 0) {
+  if (notedItems.length > 0) {
     const notesGap = 24;
-    const { group: notesGroup, height: notesHeight } = buildNotesGroup(notedComponents, x, cursorY + notesGap, width);
+    const { group: notesGroup, height: notesHeight } = buildNotesGroup(notedItems, x, cursorY + notesGap, width);
     clone.appendChild(notesGroup);
     cursorY += notesGap + notesHeight;
   }

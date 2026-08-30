@@ -2,6 +2,7 @@ import { getLinkType } from "../catalog/linkTypes.js";
 import { getCatalogEntry } from "../catalog/components.js";
 import { DEFAULT_SYMBOL_SIZE } from "./componentsLayer.js";
 import { isEditingText } from "./domUtils.js";
+import { getNotedItems, noteNumbersByKind } from "./notesRegistry.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HIT_STROKE_WIDTH = 14;
@@ -104,12 +105,46 @@ export class LinksLayer {
     if (!this.floorId) return;
     const components = this.store.getComponentsForFloor(this.floorId);
     const findComponent = (id) => components.find((c) => c.id === id);
+    // Numérotation partagée avec les composants commentés (voir
+    // notesRegistry.js) et la légende à l'export (io/exportPlan.js).
+    const noteNumbers = noteNumbersByKind(getNotedItems(this.store, this.floorId), "liaison");
     for (const liaison of this.store.getLiaisonsForFloor(this.floorId)) {
       const from = findComponent(liaison.fromComponentId);
       const to = findComponent(liaison.toComponentId);
       if (!from || !to) continue; // liaison orpheline (ne devrait pas arriver, suppression en cascade)
       this.renderLiaison(liaison, from, to);
+      const number = noteNumbers.get(liaison.id);
+      if (number) this.renderNoteMarker(liaison, from, to, number);
     }
+  }
+
+  // Pastille au milieu du trait, dans le calque au-dessus des composants
+  // (toujours lisible, comme le reste de la liaison) : même style que les
+  // notes de composant (voir ComponentsLayer.renderNoteMarker).
+  renderNoteMarker(liaison, from, to, number) {
+    const target = this.overlayLayerEl ?? this.layerEl;
+    const group = document.createElementNS(SVG_NS, "g");
+    group.classList.add("component-note-marker");
+    group.setAttribute("transform", `translate(${(from.x + to.x) / 2} ${(from.y + to.y) / 2})`);
+
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("r", 6);
+    circle.classList.add("component-note-marker__circle");
+    group.appendChild(circle);
+
+    const text = document.createElementNS(SVG_NS, "text");
+    text.textContent = String(number);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "central");
+    text.setAttribute("y", 0.5);
+    text.classList.add("component-note-marker__text");
+    group.appendChild(text);
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = `Note ${number} — ${liaison.comment}`;
+    group.appendChild(title);
+
+    target.appendChild(group);
   }
 
   renderLiaison(liaison, from, to) {

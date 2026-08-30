@@ -2,6 +2,7 @@ import { getCatalogEntry, isElectrifiable } from "../catalog/components.js";
 import { isEditingText } from "./domUtils.js";
 import { snapPosition } from "./snapping.js";
 import { promptFurnitureDetails } from "./furnitureDialog.js";
+import { getNotedItems, noteNumbersByKind } from "./notesRegistry.js";
 
 export const SVG_NS = "http://www.w3.org/2000/svg";
 export const DEFAULT_SYMBOL_SIZE = 40;
@@ -91,13 +92,13 @@ export class ComponentsLayer {
       this.layerEl.appendChild(this.renderComponent(component));
     }
     // Pastilles de note en second passage, par-dessus tous les composants :
-    // même numérotation (ordre du floor, un commentaire = une note) que la
-    // légende à l'export (voir io/exportPlan.js), pour que le numéro d'une
-    // note reste le même en édition et sur le schéma exporté.
-    let noteNumber = 0;
+    // numérotation partagée avec les liaisons commentées (voir notesRegistry.js)
+    // et la légende à l'export (io/exportPlan.js), pour qu'un même élément
+    // commenté porte toujours le même numéro partout.
+    const noteNumbers = noteNumbersByKind(getNotedItems(this.store, this.floorId), "component");
     for (const component of components) {
-      if (!component.comment || !component.comment.trim()) continue;
-      this.layerEl.appendChild(this.renderNoteMarker(component, ++noteNumber));
+      const number = noteNumbers.get(component.id);
+      if (number) this.layerEl.appendChild(this.renderNoteMarker(component, number));
     }
   }
 
