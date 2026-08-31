@@ -483,18 +483,24 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
   });
 
   const landscape = pages[0].width >= pages[0].height;
-  const pagesHtml = pages
-    .map(({ floor, url }) => `<div class="page"><img src="${url}" alt="${floor.label}" /></div>`)
-    .join("\n");
+  // Jointes sans espace ("\n" est un nœud texte entre deux <div> de bloc :
+  // invisible à l'écran, mais certains moteurs d'impression lui comptent
+  // quand même une hauteur non nulle, ce qui suffit à faire déborder une
+  // page pile à sa taille max et déclencher une page blanche derrière).
+  const pagesHtml = pages.map(({ floor, url }) => `<div class="page"><img src="${url}" alt="${floor.label}" /></div>`).join("");
 
   // A4 (210x297mm) moins les marges de 10mm de chaque côté : la zone
-  // imprimable réelle. Contraindre chaque page à cette taille exacte (au
-  // lieu d'un simple "width:100%; height:auto" qui laissait l'image déborder
-  // et se faire couper si elle était trop haute, ex. légende volumineuse)
-  // garantit que le plan + légende + notes tiennent toujours entièrement sur
-  // une page, quitte à être un peu réduits.
-  const printableWidthMm = landscape ? 277 : 190;
-  const printableHeightMm = landscape ? 190 : 277;
+  // imprimable réelle, moins une petite marge de sécurité supplémentaire
+  // (arrondis de conversion mm/px du moteur d'impression) pour ne jamais
+  // toucher pile la limite de la page — sinon le moindre dépassement d'une
+  // fraction de pixel fait déborder une page blanche après chaque étage.
+  // Contraindre chaque page à cette taille (au lieu d'un simple
+  // "width:100%; height:auto" qui laissait l'image déborder et se faire
+  // couper si elle était trop haute, ex. légende volumineuse) garantit que
+  // le plan + légende + notes tiennent toujours entièrement sur une page.
+  const SAFETY_MARGIN_MM = 4;
+  const printableWidthMm = (landscape ? 277 : 190) - SAFETY_MARGIN_MM;
+  const printableHeightMm = (landscape ? 190 : 277) - SAFETY_MARGIN_MM;
 
   // Le nom suggéré par la boîte "Enregistrer en PDF" du navigateur reprend le
   // <title> de la page : on l'aligne sur le fichier .aiti courant (sans son
@@ -514,7 +520,8 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
         <title>${pdfTitle}</title>
         <style>
           @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 10mm; }
-          html, body { margin: 0; padding: 0; }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; overflow: hidden; }
           .page {
             width: ${printableWidthMm}mm;
             height: ${printableHeightMm}mm;
@@ -524,6 +531,8 @@ export async function exportPdf(stage, componentsLayer, linksLayer, wallsLayer, 
             overflow: hidden;
             page-break-after: always;
             break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           .page:last-child { page-break-after: avoid; break-after: avoid; }
           img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
