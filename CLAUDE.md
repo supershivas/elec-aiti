@@ -1,9 +1,12 @@
+@.claude/conventions.md
+
 # CLAUDE.md
 
 ## Nature du projet
 Éditeur graphique statique (pas de temps réel, pas de backend) permettant de placer des
 composants électriques sur des plans d'étage et de tracer les liaisons entre eux.
-Hébergement : GitHub Pages (site statique, aucune donnée serveur).
+Hébergement : GitHub Pages (site statique, aucune donnée serveur),
+https://supershivas.github.io/elec-aiti/. Cible : **uniquement bureau**.
 
 ## Rendu
 - **SVG natif**, pas de canvas 2D. Les plans fournis (`aiti-elec_RDC.svg`,
@@ -171,6 +174,15 @@ exports (SVG/PNG/PDF).
   pour l'élément survolé, couleurs de liaison différenciées par type de circuit (ex: bleu =
   éclairage, vert = prises, rouge = tableau/alimentation).
 - Centrage systématique en flex/grid, aucune valeur en dur hors tokens.
+
+## Exceptions aux conventions
+- Cible uniquement bureau (section 8) : pas d'optimisation mobile. Le bandeau
+  « Cette app est prévue pour un écran d'ordinateur » demandé par les conventions
+  n'est pas encore en place.
+- Données (section 7) : pas de Supabase ni de synchronisation ; auto-save en
+  `localStorage` + fichiers `.aiti` exportés/importés (voir « Modèle de données »).
+- Design (section 5) : tokens propres dans `css/design-tokens.css` (ambiance plan
+  technique), pas ceux de `design-tokens.json`.
 
 ## Git & workflow
 - **Toujours pousser directement sur `main`**, jamais de branche intermédiaire ni de PR,
