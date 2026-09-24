@@ -1085,3 +1085,61 @@
 .compare-banner__dot--removed {
   background: var(--color-circuit-alimentation);
 }
+
+/* Barre du haut : nom de l'app (lien vers l'accueil) et roue crantée. */
+.topbar__home {
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar__home:hover .topbar__title {
+  opacity: 0.8;
+}
+
+.topbar__settings {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.topbar__settings:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Réglages : export, version, nouveautés. */
+.settings__title {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.settings__version {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: var(--space-4) 0;
+}
+
+.settings__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.settings__list ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  color: var(--color-text-muted);
+}

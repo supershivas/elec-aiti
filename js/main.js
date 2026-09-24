@@ -19,9 +19,11 @@ import { linkTypes, getLinkType } from "./catalog/linkTypes.js";
 import { getCatalogEntry } from "./catalog/components.js";
 import { isEditingText } from "./editor/domUtils.js";
 import { exportSvg, exportPng, exportPdf } from "./io/exportPlan.js";
-import { exportProjectFile, importProjectFile, parseProjectFile } from "./io/projectFile.js";
+import { exportProjectFile, importProjectFile, parseProjectFile, projectData } from "./io/projectFile.js";
 import { promptFloorName } from "./editor/floorDialog.js";
 import { showToast } from "./editor/toast.js";
+import { SettingsDialog, VERSION_URL } from "./editor/settingsDialog.js";
+import { startUpdateCheck, downloadJSON } from "./app-update.js";
 
 const svgEl = document.querySelector("#stage-svg");
 const errorEl = document.querySelector("#stage-error");
@@ -646,3 +648,31 @@ const initialFloor = store.getFloors()[0];
 switchToFloor(initialFloor.id);
 refreshUndoState();
 refreshFileNameLabel();
+
+// Réglages (roue crantée), retour à l'accueil par le titre et mise à jour
+// automatique : conventions communes du design system.
+const settingsDialog = new SettingsDialog({
+  onExport: () => {
+    const now = new Date().toISOString();
+    downloadJSON({ app: "elec-aiti", exported_at: now, ...projectData(store) }, `elec-aiti_${now.slice(0, 10)}.json`);
+  },
+});
+document.getElementById("settings-button").addEventListener("click", (event) => {
+  event.stopPropagation();
+  menuBar.closeAll();
+  settingsDialog.open();
+});
+// Un vrai lien (clic du milieu, nouvel onglet) ; le clic simple referme menus
+// et boîtes de dialogue et revient en mode sélection, sans recharger.
+document.getElementById("home-link").addEventListener("click", (event) => {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  event.preventDefault();
+  menuBar.closeAll();
+  document.querySelectorAll(".modal-overlay").forEach((overlay) => overlay.remove());
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+});
+startUpdateCheck({
+  versionUrl: VERSION_URL,
+  isBusy: () => isEditingText(document.activeElement) || !!document.querySelector(".modal-overlay"),
+  onUpdated: (version) => showToast(`Mis à jour en v${version}`),
+});

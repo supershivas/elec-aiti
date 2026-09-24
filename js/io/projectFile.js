@@ -12,21 +12,23 @@ function formatDateForFilename(date = new Date()) {
 
 // Renvoie le nom de fichier effectivement enregistré (pour l'affichage, voir
 // Store.setFileName), ou false si l'utilisateur a annulé.
+// Contenu persistant du projet : ce qui part dans le .aiti et dans l'export
+// JSON des réglages.
+export function projectData(store) {
+  return {
+    floors: store.state.floors,
+    components: store.state.components,
+    liaisons: store.state.liaisons,
+    walls: store.state.walls,
+    openings: store.state.openings,
+    rooms: store.state.rooms,
+    groups: store.state.groups,
+    changeLog: store.state.changeLog,
+  };
+}
+
 export async function exportProjectFile(store) {
-  const data = JSON.stringify(
-    {
-      floors: store.state.floors,
-      components: store.state.components,
-      liaisons: store.state.liaisons,
-      walls: store.state.walls,
-      openings: store.state.openings,
-      rooms: store.state.rooms,
-      groups: store.state.groups,
-      changeLog: store.state.changeLog,
-    },
-    null,
-    2,
-  );
+  const data = JSON.stringify(projectData(store), null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const suggestedName = `circuit-${formatDateForFilename()}.aiti`;
 

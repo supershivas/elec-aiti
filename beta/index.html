@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Éditeur de schémas électriques — Bêta</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
   <link rel="stylesheet" href="../css/design-tokens.css" />
   <link rel="stylesheet" href="../css/base.css" />
   <link rel="stylesheet" href="../css/editor.css" />
@@ -12,7 +13,7 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <h1 class="topbar__title">Éditeur de schémas électriques <span class="topbar__badge">Bêta</span></h1>
+      <a class="topbar__home" id="home-link" href="./" title="Revenir à l'accueil"><h1 class="topbar__title">Éditeur de schémas électriques <span class="topbar__badge">Bêta</span></h1></a>
       <nav class="menubar" aria-label="Menu principal">
         <div class="menubar__item">
           <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
@@ -55,6 +56,12 @@
           </div>
         </div>
       </nav>
+      <button type="button" class="topbar__settings" id="settings-button" title="Réglages" aria-label="Réglages">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M19.4 14.5a1.7 1.7 0 0 0 .35 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.35 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.35l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .35-1.88 1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.56-1.1 1.7 1.7 0 0 0-.35-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.88.35H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.35l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.35 1.88V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.04z"/>
+        </svg>
+      </button>
     </header>
     <div id="compare-banner" class="compare-banner" hidden>
       <span class="compare-banner__label" id="compare-banner-label"></span>
