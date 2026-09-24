@@ -44,7 +44,7 @@ export function startUpdateCheck({
       sessionStorage.removeItem(UPDATED_FLAG);
       if (onUpdated) setTimeout(() => onUpdated(updatedTo), 600);
     }
-  } catch (e) {
+  } catch {
     // sessionStorage indisponible : pas de toast, la mise à jour marche quand même.
   }
 
@@ -58,7 +58,7 @@ export function startUpdateCheck({
       return;
     }
     reloading = true;
-    try { sessionStorage.setItem(UPDATED_FLAG, next); } catch (e) { /* voir plus haut */ }
+    try { sessionStorage.setItem(UPDATED_FLAG, next); } catch { /* voir plus haut */ }
     if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
       navigator.serviceWorker.getRegistration()
         .then(reg => {
@@ -82,7 +82,7 @@ export function startUpdateCheck({
       // celle du fichier servi, jamais une valeur écrite dans le code.
       if (current === null) { current = version; return; }
       if (version !== current) reloadWhenIdle(version);
-    } catch (e) {
+    } catch {
       // Hors ligne ou déploiement en cours : on s'abstient.
     }
   }
@@ -96,7 +96,7 @@ export function startUpdateCheck({
 
 // Version courante (pour l'afficher dans les Réglages).
 export async function loadVersion(versionUrl = 'version.json') {
-  try { return await fetchVersion(versionUrl); } catch (e) { return null; }
+  try { return await fetchVersion(versionUrl); } catch { return null; }
 }
 
 // Les `count` dernières versions de CHANGELOG.md :
@@ -113,7 +113,7 @@ export async function loadChangelog(changelogUrl = 'CHANGELOG.md', count = 5) {
       const changes = lines.filter(l => l.startsWith('- ')).map(l => l.slice(2).trim());
       return { version, date: date || '', changes };
     });
-  } catch (e) {
+  } catch {
     return [];
   }
 }
