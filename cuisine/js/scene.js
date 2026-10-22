@@ -13,6 +13,7 @@ export const TYPES = {
   frigo: { label: 'Frigo', color: 0xf5f7f9, w: 60, d: 70, h: 155, elev: 0, wall: false },
   mural: { label: 'Linky / tableau', color: 0xe8edf2, w: 20, d: 26, h: 80, elev: 149, wall: false },
   'porte-fenetre': { label: 'Porte-fenêtre', color: 0x93c5fd, w: 108, d: 5, h: 205.7, elev: 0, wall: true },
+  commentaire: { label: 'Commentaire', color: 0xd97706, w: 8, d: 8, h: 8, elev: 100, wall: false },
   libre: { label: 'Élément libre', color: 0xd7dde3, w: 50, d: 50, h: 50, elev: 0, wall: false },
 };
 
@@ -267,7 +268,8 @@ export function createStore() {
       }, `room:${Object.keys(patch).join(',')}`);
     },
 
-    addItem(type) {
+    // `geo` : position imposée (x, z, elev), par exemple le point cliqué avec l'outil Commentaire
+    addItem(type, geo = {}) {
       const t = TYPES[type];
       if (!t) return;
       mutate(() => {
@@ -275,6 +277,7 @@ export function createStore() {
         const it = makeItem(nextId(), type, t.label, {
           x: 80 + (n % 6) * 12,
           z: t.wall ? 0 : Math.max(0, state.room.roomD / 2 - t.d / 2),
+          ...geo,
         });
         state.items.push(it);
         selectedId = it.id;

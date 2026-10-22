@@ -187,6 +187,10 @@ Enregistrer / Enregistrer sous / Ouvrir au format `.aiti3d` (JSON `{format:'aiti
 `js/fileIo.js`, sélecteurs natifs si disponibles sinon téléchargement/`<input>`), export SVG de la vue,
 Annuler/Rétablir (Ctrl+Z / Ctrl+Y, historique dans le store de `scene.js` : un glissé ou une rafale de
 saisie = un seul pas ; nom du fichier et indicateur « modifié » hors historique, persistés en localStorage).
+Outils (boutons du bandeau, touches M et C, Échap pour quitter) : **mesure** (deux clics, aimant sur les
+coins des éléments et de la pièce, Alt sans aimant, Maj pour l'axe ; en 3D, points sur les surfaces) —
+purement visuelle, jamais sauvegardée ni exportée ; **commentaire** = un élément de type `commentaire`
+(pastille + titre + texte) posé au clic, donc enregistré, annulable, déplaçable comme les autres.
 Lectures incertaines du croquis listées dans le bloc « Lectures à vérifier » de la page.
 
 ## Design system

@@ -2,7 +2,7 @@ import { TYPES, ROOM_FIELDS, createStore, aabb } from './scene.js';
 import { snapMove } from './snap.js';
 import { MenuBar } from './menuBar.js';
 import { saveScene, openScene, loadFromInput, forgetFile } from './fileIo.js';
-import { faceView, sideView, planView, DRAG } from './drawings.js';
+import { faceView, sideView, planView, DRAG, snapPointsFor, measureSvg } from './drawings.js';
 
 const ROT_STEP = 15;
 const VIEWS = [
@@ -16,6 +16,8 @@ const store = createStore();
 let activeId = VIEWS[0].id;
 let view3d = null;
 let rendering3d = false;
+let tool = 'select'; // 'select' | 'measure' | 'comment'
+let measure = null; // { view, a, b, pending } en coordonnées du SVG (cm)
 let guides = []; // repères d'aimantation, le temps d'un glissé
 
 const $ = (id) => document.getElementById(id);
@@ -72,6 +74,7 @@ async function ensure3d() {
       getItem: (id) => store.items.find((it) => it.id === id),
       onSelect: (id) => store.select(id),
       onMove: (id, pos, noSnap) => moveItem(id, pos, { x: true, z: true }, noSnap),
+      onPlace: (p) => placeNote({ x: p.x - 4, z: p.z - 4, elev: p.y - 4 }),
       onDragStart: () => store.beginGesture(),
       onDragEnd: () => {
         store.endGesture();
@@ -89,6 +92,7 @@ async function drawView() {
   const v = VIEWS.find((x) => x.id === activeId);
   if (v.render) {
     panes[v.id].innerHTML = v.render(store.room, store.items, store.selectedId, guides);
+    refreshOverlay();
     return;
   }
   if (rendering3d) return;
@@ -108,7 +112,93 @@ function select(id) {
   const current = VIEWS.find((v) => v.id === id);
   exportBtn.disabled = !current.render;
   labelsWrap.hidden = !!current.render;
+  measure = null; // une mesure vaut pour la vue où elle a été tracée
+  view3d?.clearMeasure();
   drawView();
+}
+
+// --- outils de mesure et de commentaire ---------------------------------------
+const HINTS = {
+  measure: 'Mesure : clique deux points. Alt : sans aimant · Maj : horizontal ou vertical · Échap : annuler.',
+  comment: 'Commentaire : clique à l’endroit à commenter. Échap : annuler.',
+};
+
+function setTool(name) {
+  tool = tool === name ? 'select' : name;
+  measure = null;
+  stageEl.classList.toggle('measuring', tool !== 'select');
+  $('btn-measure').setAttribute('aria-pressed', String(tool === 'measure'));
+  $('btn-comment').setAttribute('aria-pressed', String(tool === 'comment'));
+  const hint = $('tool-hint');
+  hint.hidden = tool === 'select';
+  hint.textContent = HINTS[tool] ?? '';
+  view3d?.setTool(tool);
+  refreshOverlay();
+}
+
+// La mesure est ajoutée au <svg> après chaque dessin de la vue (jamais dans les exports).
+function refreshOverlay() {
+  const svg = panes[activeId].querySelector('svg');
+  if (!svg) return;
+  svg.querySelector('.measure')?.remove();
+  if (measure && measure.view === activeId) svg.insertAdjacentHTML('beforeend', measureSvg(measure));
+}
+
+// Point de mesure aimanté au coin le plus proche (rayon de 12 px), sauf Alt ; Maj force l'axe.
+function measurePoint(viewId, svg, e) {
+  let pt = svgPoint(svg, e);
+  if (!e.altKey) {
+    const tol = 12 / svg.getScreenCTM().a;
+    let best = null;
+    for (const [x, y] of snapPointsFor(viewId, store.room, store.items)) {
+      const dist = Math.hypot(x - pt.x, y - pt.y);
+      if (dist < tol && (!best || dist < best.dist)) best = { dist, x, y };
+    }
+    if (best) pt = { x: best.x, y: best.y };
+  }
+  if (e.shiftKey && measure?.pending) {
+    if (Math.abs(pt.x - measure.a.x) > Math.abs(pt.y - measure.a.y)) pt = { x: pt.x, y: measure.a.y };
+    else pt = { x: measure.a.x, y: pt.y };
+  }
+  return pt;
+}
+
+// Crée un commentaire à l'endroit cliqué ; on y saisit aussitôt le texte.
+function placeNote(geo) {
+  store.addItem('commentaire', { x: Math.round(geo.x), z: Math.round(geo.z), elev: Math.max(0, Math.round(geo.elev)) });
+  setTool('comment');
+  const input = $('p-comment');
+  input.focus();
+}
+
+function toolClick(v, e) {
+  const svg = panes[v.id].querySelector('svg');
+  if (!svg) return;
+  e.preventDefault();
+  if (tool === 'measure') {
+    const pt = measurePoint(v.id, svg, e);
+    measure = measure?.pending && measure.view === v.id
+      ? { ...measure, b: pt, pending: false }
+      : { view: v.id, a: pt, b: pt, pending: true };
+    refreshOverlay();
+    return;
+  }
+  // commentaire : le point cliqué est converti en position réelle selon la vue
+  const pt = svgPoint(svg, e);
+  const { roomH, roomD } = store.room;
+  if (v.id === 'dessus') placeNote({ x: pt.x - 4, z: pt.y - 4, elev: 100 });
+  else if (v.id === 'face') placeNote({ x: pt.x - 4, z: 0, elev: roomH - pt.y - 4 });
+  else placeNote({ x: 0, z: roomD - pt.x - 4, elev: roomH - pt.y - 4 });
+}
+
+for (const v of VIEWS.filter((x) => x.render)) {
+  panes[v.id].addEventListener('pointermove', (e) => {
+    if (tool !== 'measure' || !measure?.pending || measure.view !== v.id) return;
+    const svg = panes[v.id].querySelector('svg');
+    if (!svg) return;
+    measure.b = measurePoint(v.id, svg, e);
+    refreshOverlay();
+  });
 }
 
 // un clic dans une vue doit sortir d'un champ du panneau (sinon sa valeur périmée s'appliquerait à la nouvelle sélection)
@@ -125,6 +215,10 @@ function svgPoint(svg, e) {
 for (const v of VIEWS.filter((x) => x.render)) {
   panes[v.id].addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
+    if (tool !== 'select') {
+      toolClick(v, e);
+      return;
+    }
     const svg = panes[v.id].querySelector('svg');
     if (!svg) return;
     // avant select() : la sélection redessine la vue et détache l'ancien <svg>
@@ -281,10 +375,11 @@ exportBtn.addEventListener('export', () => {
     .filter((n, i, a) => a.indexOf(n) === i)
     .map((n) => `${n}:${root.getPropertyValue(n).trim()}`)
     .join(';');
-  const svg = panes[v.id].innerHTML
+  // on repart d'un rendu neuf : sans sélection, repères d'aimantation ni mesure
+  const svg = v
+    .render(store.room, store.items, null, [])
     .replace('<svg ', `<svg style="${vars}" `)
-    .replace('>', `><style>${style}</style>`)
-    .replace(/ selected/g, '');
+    .replace('>', `><style>${style}</style>`);
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -312,6 +407,21 @@ window.addEventListener('keydown', (e) => {
   }
   // dans un champ de texte, on laisse le navigateur gérer son propre annuler/rétablir
   if (e.target.closest('input, textarea, select')) return;
+  if (!mod && (key === 'm' || key === 'c')) {
+    e.preventDefault();
+    setTool(key === 'm' ? 'measure' : 'comment');
+    return;
+  }
+  if (e.key === 'Escape' && tool !== 'select') {
+    if (tool === 'measure' && measure) {
+      measure = null;
+      view3d?.clearMeasure();
+      refreshOverlay();
+    } else {
+      setTool(tool);
+    }
+    return;
+  }
   if (mod && (key === 'z' || key === 'y')) {
     e.preventDefault();
     if (key === 'y' || e.shiftKey) store.redo();
@@ -380,6 +490,10 @@ menu.onAction('menu-undo', () => store.undo());
 menu.onAction('menu-redo', () => store.redo());
 menu.onAction('menu-duplicate', () => store.selected && store.duplicateItem(store.selectedId));
 menu.onAction('menu-delete', () => store.selected && store.removeItem(store.selectedId));
+$('btn-measure').addEventListener('click', () => setTool('measure'));
+$('btn-comment').addEventListener('click', () => setTool('comment'));
+menu.onAction('menu-measure', () => setTool('measure'));
+menu.onAction('menu-comment', () => setTool('comment'));
 $('btn-undo').addEventListener('click', () => store.undo());
 $('btn-redo').addEventListener('click', () => store.redo());
 

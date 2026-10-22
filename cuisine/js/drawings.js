@@ -58,12 +58,25 @@ function svgWrap(minX, minY, w, h, body, title) {
 // Un élément cliquable/déplaçable : un rectangle (+ nom) dans le groupe `.item`.
 // `rot` ne sert qu'en vue de dessus, où l'on voit la vraie forme tournée.
 function itemShape(it, x, y, w, h, selected, rot = 0, faint = false) {
+  const cls = `item t-${it.type}${selected ? ' selected' : ''}${faint ? ' faint' : ''}`;
+  if (it.type === 'commentaire') return noteShape(it, x, y, w, h, cls);
   const turn = rot ? ` transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"` : '';
   const tall = h > w * 1.8 && !rot;
   const showName = it.name && !faint && Math.max(w, h) > 18 && Math.min(w, h) > 4;
-  return `<g class="item t-${it.type}${selected ? ' selected' : ''}${faint ? ' faint' : ''}" data-id="${it.id}">
+  return `<g class="${cls}" data-id="${it.id}">
     <rect class="item-body" x="${x}" y="${y}" width="${w}" height="${h}"${turn}/>
     ${showName ? text(x + w / 2, y + h / 2, it.name, 'lbl', tall ? -90 : 0) : ''}
+  </g>`;
+}
+
+// Commentaire : pastille ronde + titre et début du texte à droite.
+function noteShape(it, x, y, w, h, cls) {
+  const excerpt = it.comment.length > 60 ? `${it.comment.slice(0, 57)}…` : it.comment;
+  const tx = x + w + 3;
+  const ty = y + h / 2;
+  return `<g class="${cls}" data-id="${it.id}">
+    <rect class="item-body" x="${x}" y="${y}" width="${w}" height="${h}"/>
+    <text class="note-txt" x="${tx}" y="${ty}"><tspan class="note-title">${esc(it.name || 'Commentaire')}</tspan>${excerpt ? `<tspan class="note-sub" x="${tx}" dy="6">${esc(excerpt)}</tspan>` : ''}</text>
   </g>`;
 }
 
@@ -193,3 +206,58 @@ export const DRAG = {
   fond: { move: (it, dx, dy) => ({ z: it.z - dx, elev: Math.max(0, it.elev - dy) }), axes: { z: true, elev: true } },
   dessus: { move: (it, dx, dy) => ({ x: it.x + dx, z: it.z + dy }), axes: { x: true, z: true } },
 };
+
+// --- outil de mesure ----------------------------------------------------------
+// Les points de mesure sont en coordonnées du SVG (1 unité = 1 cm), donc la
+// distance entre deux points est directement une longueur réelle.
+
+// Coins des éléments et de la pièce, où la mesure vient s'accrocher.
+export function snapPointsFor(viewId, room, items) {
+  const shape = roomShape(room);
+  const pts = [];
+  if (viewId === 'dessus') {
+    pts.push(...shape.points);
+    for (const it of items) {
+      const b = aabb(it);
+      const r = ((it.rot || 0) * Math.PI) / 180;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const lx = (sx * it.w) / 2;
+        const lz = (sz * it.d) / 2;
+        pts.push([b.cx + lx * Math.cos(r) - lz * Math.sin(r), b.cz + lx * Math.sin(r) + lz * Math.cos(r)]);
+      }
+    }
+    return pts;
+  }
+  const H = shape.H;
+  const [x0, x1] = viewId === 'face' ? [0, shape.maxX] : [shape.D - shape.maxD, shape.D];
+  pts.push([x0, 0], [x1, 0], [x0, H], [x1, H]);
+  if (viewId === 'face') pts.push([shape.W, 0], [shape.W, H]);
+  for (const it of items) {
+    const b = aabb(it);
+    const [u0, u1] = viewId === 'face' ? [b.minX, b.maxX] : [shape.D - b.maxZ, shape.D - b.minZ];
+    for (const u of [u0, u1]) pts.push([u, H - it.elev], [u, H - it.elev - it.h]);
+  }
+  return pts;
+}
+
+// Trait de mesure (m = { a, b, pending }), à ajouter en fin de <svg>.
+export function measureSvg(m) {
+  if (!m) return '';
+  const { a, b } = m;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  const mx = (a.x + b.x) / 2;
+  const my = (a.y + b.y) / 2;
+  // le texte se pose du côté « haut » du trait pour rester lisible
+  const nx = len ? (dy >= 0 ? dy : -dy) / len : 0;
+  const ny = len ? -(dx >= 0 ? dx : -dx) / len : -1;
+  const lx = mx + nx * 9;
+  const ly = my + ny * 9;
+  return `<g class="measure${m.pending ? ' measure-pending' : ''}">
+    ${line(a.x, a.y, b.x, b.y, 'measure-line')}
+    <circle class="measure-dot" cx="${a.x}" cy="${a.y}" r="2.2"/>
+    <circle class="measure-dot" cx="${b.x}" cy="${b.y}" r="2.2"/>
+    ${len > 0.05 ? `<text class="measure-txt" x="${lx}" y="${ly}"><tspan x="${lx}">${fmt(len)} cm</tspan><tspan class="measure-sub" x="${lx}" dy="7">${fmt(Math.abs(dx))} × ${fmt(Math.abs(dy))}</tspan></text>` : ''}
+  </g>`;
+}

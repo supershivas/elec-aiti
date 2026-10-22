@@ -207,3 +207,33 @@ label.btn { display: inline-flex; align-items: center; }
 .grow { flex: 1; }
 .wall-ext { stroke-dasharray: 6 4; stroke-width: 1; }
 .item.faint .item-body { fill-opacity: 0.15; stroke-opacity: 0.35; }
+
+/* Outil de mesure */
+.measure { pointer-events: none; }
+.measure-line { stroke: var(--color-measure); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.measure-dot { fill: var(--color-measure); stroke: var(--color-bg-panel); stroke-width: 1; }
+.measure-txt { fill: var(--color-measure); font-size: 6.5px; font-weight: 700; text-anchor: middle; paint-order: stroke; stroke: var(--color-bg-panel); stroke-width: 0.15em; }
+.measure-sub { font-size: 5px; font-weight: 600; }
+.measuring .drawing, .measuring .drawing .item, .measuring canvas { cursor: crosshair; }
+.icon-btn[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); }
+.measure-hint {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-measure);
+  color: #fff;
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+.measure-hint[hidden] { display: none; }
+
+/* Commentaires */
+.item.t-commentaire .item-body { rx: 50%; ry: 50%; fill: var(--color-accent-hover); stroke: var(--color-bg-panel); stroke-width: 1; }
+.item.t-commentaire.selected .item-body { stroke: var(--color-accent); stroke-width: 2; }
+.note-txt { font-size: 6px; fill: var(--color-text); dominant-baseline: middle; paint-order: stroke; stroke: var(--color-bg-panel); stroke-width: 0.2em; pointer-events: none; }
+.note-title { font-weight: 700; }
+.note-sub { font-size: 5px; fill: var(--color-text-muted); font-weight: 400; }

@@ -34,6 +34,9 @@
           <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler<kbd>Ctrl+Z</kbd></button>
           <button type="button" class="menubar__action" id="menu-redo" role="menuitem">Rétablir<kbd>Ctrl+Y</kbd></button>
           <hr class="menubar__separator">
+          <button type="button" class="menubar__action" id="menu-measure" role="menuitem">Outil de mesure<kbd>M</kbd></button>
+          <button type="button" class="menubar__action" id="menu-comment" role="menuitem">Outil commentaire<kbd>C</kbd></button>
+          <hr class="menubar__separator">
           <button type="button" class="menubar__action" id="menu-duplicate" role="menuitem">Dupliquer l’élément</button>
           <button type="button" class="menubar__action" id="menu-delete" role="menuitem">Supprimer l’élément<kbd>Suppr</kbd></button>
         </div>
@@ -42,13 +45,15 @@
     <div class="tabs" id="tabs" role="tablist" aria-label="Vues"></div>
     <div class="topbar__right">
       <label id="labels-wrap" class="check" hidden><input type="checkbox" id="labels-toggle" checked> Noms</label>
+      <button type="button" class="icon-btn" id="btn-measure" title="Outil de mesure (M)" aria-label="Outil de mesure" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 3l4 4L7 21l-4-4L17 3z"/><path d="m16 7-1.5-1.5M13 10l-1.5-1.5M10 13l-1.5-1.5M7 16l-1.5-1.5"/></svg></button>
+      <button type="button" class="icon-btn" id="btn-comment" title="Outil commentaire (C)" aria-label="Outil commentaire" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2V5z"/><path d="M8 8h8M8 12h5"/></svg></button>
       <button type="button" class="icon-btn" id="btn-undo" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
       <button type="button" class="icon-btn" id="btn-redo" title="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
       <span class="filename" id="filename"></span>
     </div>
   </header>
   <main class="layout">
-    <section class="stage" id="stage" aria-live="polite"></section>
+    <section class="stage" id="stage" aria-live="polite"><p class="measure-hint" id="tool-hint" hidden></p></section>
     <aside class="side">
       <section class="block">
         <h2>Ajouter un élément</h2>
