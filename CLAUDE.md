@@ -168,10 +168,15 @@ exports (SVG/PNG/PDF).
 
 ## Page Cuisine Aiti (`cuisine/`)
 Page indépendante (sans lien depuis l'app, pas de version/CHANGELOG propres) : schémas à l'échelle
-d'une cuisine relevés sur un croquis papier. `cuisine/index.html` + `js/params.js` (cotes
-éditables, persistées en localStorage `cuisine-aiti:params`, valeurs dérivées dans `layout()`),
-`js/drawings.js` (vues 2D SVG : face, mur du frigo, dessus ; cotes mesurées sur la géométrie),
-`js/view3d.js` (three.js). three.js 0.170 est copié dans `cuisine/vendor/` (importmap, pas de CDN).
+d'une cuisine relevés sur un croquis papier, vues 2D (face, mur du frigo, dessus) et 3D. La scène est
+une pièce (`room`) + une liste d'éléments-boîtes (`{id, type, name, comment, x, z, w, d, h, elev}`,
+cm ; x le long du mur des meubles, z vers l'intérieur, elev = hauteur du bas) dans `js/scene.js`
+(store, persistance localStorage `cuisine-aiti:scene:v2`, export/import JSON, valeurs du croquis par
+défaut). `js/drawings.js` projette les éléments en SVG (cotes mesurées sur la géométrie, cotes de
+l'élément sélectionné en bleu), `js/view3d.js` fait de même avec three.js (0.170 copié dans
+`cuisine/vendor/`, importmap, pas de CDN). Tout est sélectionnable/déplaçable à la souris dans les
+quatre vues, propriétés (nom, H × L × l, hauteur au sol, position, commentaires) dans le panneau de
+droite. Le renfoncement et la porte-fenêtre sont des éléments repères : le mur n'est pas percé en 3D.
 Lectures incertaines du croquis listées dans le bloc « Lectures à vérifier » de la page.
 
 ## Design system

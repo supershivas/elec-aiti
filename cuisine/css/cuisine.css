@@ -67,40 +67,66 @@ body {
 .drawing { width: 100%; height: 100%; }
 
 /* Schémas : traits fins quelle que soit l'échelle d'affichage */
+.drawing { touch-action: none; user-select: none; }
 .drawing * { vector-effect: non-scaling-stroke; }
 .wall { fill: none; stroke: var(--color-plan-stroke); stroke-width: 1.5; }
-.wall-unfolded { stroke-dasharray: 6 4; stroke-width: 1; }
 .floor { stroke: var(--color-plan-stroke); stroke-width: 2; }
 .room { fill: var(--color-room-fill); stroke: var(--color-plan-stroke); stroke-width: 2; }
-.obj { fill: none; stroke: var(--color-plan-stroke); stroke-width: 1; }
-.cab { fill: var(--color-room-fill); stroke: var(--color-plan-stroke); stroke-width: 1.2; }
-.cab-up { fill: none; stroke-dasharray: 6 3; }
-.appl { fill: var(--color-bg-panel); stroke: var(--color-plan-stroke); stroke-width: 1.2; }
-.free { fill: none; stroke: var(--color-text-muted); stroke-dasharray: 3 3; stroke-width: 1; }
-.glass { fill: var(--color-room-fill-selected); stroke: var(--color-accent); stroke-width: 1; }
-.frame { fill: var(--color-plan-stroke); stroke: none; }
+.item { cursor: grab; }
+.item-body { fill: var(--color-room-fill); stroke: var(--color-plan-stroke); stroke-width: 1.2; }
+.item.t-electromenager .item-body, .item.t-frigo .item-body, .item.t-mural .item-body { fill: var(--color-bg-panel); }
+.item.t-plan-travail .item-body { fill: var(--color-border); }
+.item.t-evier .item-body { fill: var(--color-plan-stroke); }
+.item.t-credence .item-body { fill: var(--color-room-fill-selected); }
+.item.t-porte-fenetre .item-body { fill: var(--color-room-fill-selected); stroke: var(--color-accent); fill-opacity: 0.6; }
+.item.t-niche .item-body { fill: none; stroke-dasharray: 6 3; }
+.item.t-libre .item-body { fill: var(--color-bg); }
+.item.selected .item-body { stroke: var(--color-accent); stroke-width: 2.5; }
 .dim-ext { stroke: var(--color-measure); stroke-width: 0.6; }
 .dim-line { stroke: var(--color-measure); stroke-width: 1; }
 .dim-txt { fill: var(--color-measure); font-size: 5.5px; text-anchor: middle; paint-order: stroke; stroke: var(--color-bg-panel); stroke-width: 0.1em; font-weight: 600; }
-.lbl { fill: var(--color-text-muted); font-size: 5px; text-anchor: middle; dominant-baseline: middle; }
+.dim-sel .dim-line, .dim-sel .dim-ext { stroke: var(--color-accent); }
+.dim-sel .dim-txt { fill: var(--color-accent); }
+.lbl { fill: var(--color-text-muted); font-size: 5px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.item.selected .lbl { fill: var(--color-text); }
 
-.side { overflow-y: auto; padding: var(--space-4); background: var(--color-bg); border-left: 1px solid var(--color-border); }
-.side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
-.side-head h2 { margin: 0; font-size: var(--font-size-lg); }
-.group { margin-bottom: var(--space-3); }
-.group summary { padding: var(--space-2) 0; font-weight: 600; cursor: pointer; }
-.field { display: grid; grid-template-columns: 1fr 88px 24px; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; }
-.field input {
+.side { overflow-y: auto; overflow-x: hidden; padding: var(--space-4); background: var(--color-bg); border-left: 1px solid var(--color-border); }
+.block { margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
+.block h2 { margin: 0 0 var(--space-3); font-size: var(--font-size-lg); }
+.block h2 small { margin-left: var(--space-2); font-size: var(--font-size-sm); font-weight: 400; color: var(--color-text-muted); }
+.block > summary { cursor: pointer; font-weight: 600; padding: var(--space-2) 0; }
+.row { display: flex; gap: var(--space-2); align-items: center; }
+.row-wrap { flex-wrap: wrap; }
+.row select { flex: 1; min-height: 44px; }
+.hint, .summary { margin: var(--space-2) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.summary { color: var(--color-text); }
+.stack { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-3); font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
+.stack input, .stack textarea, .row select, .field input {
   min-height: 36px;
-  padding: 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
   font: inherit;
-  text-align: right;
+  color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
 }
-.field input:focus { outline: 2px solid var(--color-accent); outline-offset: 0; }
+.stack textarea { resize: vertical; }
+.stack input:focus, .stack textarea:focus, .field input:focus { outline: 2px solid var(--color-accent); outline-offset: 0; }
+.btn-danger { color: var(--color-component); border-color: var(--color-component); }
+label.btn { display: inline-flex; align-items: center; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list-item { width: 100%; min-height: 36px; padding: 0 var(--space-2); font: inherit; text-align: left; color: var(--color-text); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
+.list-item[aria-current="true"] { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-bg-panel); }
+@media (hover: hover) { .list-item:hover { border-color: var(--color-accent-hover); } }
+.field { display: grid; grid-template-columns: 1fr 88px 24px; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; }
+.field input { text-align: right; }
 .field em { font-style: normal; color: var(--color-text-muted); font-size: var(--font-size-sm); }
-.notes { margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--color-text-muted); }
-.notes summary { cursor: pointer; font-weight: 600; color: var(--color-text); padding: var(--space-2) 0; }
+.notes { font-size: var(--font-size-sm); color: var(--color-text-muted); border-bottom: 0; }
+.notes summary { color: var(--color-text); }
 .notes li { margin-bottom: var(--space-2); }
+
+.stack input, .stack textarea { width: 100%; min-width: 0; }
+.item.t-meuble-haut .item-body { fill-opacity: 0.65; }
+.item.t-evier .lbl { fill: var(--color-bg-panel); }

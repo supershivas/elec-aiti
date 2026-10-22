@@ -23,20 +23,65 @@
   <main class="layout">
     <section class="stage" id="stage" aria-live="polite"></section>
     <aside class="side">
-      <div class="side-head">
-        <h2>Cotes (cm)</h2>
-        <button type="button" class="btn" id="reset">Valeurs du croquis</button>
-      </div>
-      <div id="fields"></div>
-      <details class="notes">
+      <section class="block">
+        <h2>Ajouter un élément</h2>
+        <div class="row">
+          <select id="add-type" aria-label="Type d’élément"></select>
+          <button type="button" class="btn" id="add-btn">Ajouter</button>
+        </div>
+        <p class="hint">Clique un élément pour le sélectionner, glisse-le pour le déplacer (Maj : un seul sens), flèches pour ajuster, Suppr pour le retirer.</p>
+      </section>
+
+      <section class="block" id="props" hidden>
+        <h2>Propriétés <small id="p-type"></small></h2>
+        <label class="stack"><span>Nom</span><input type="text" id="p-name" autocomplete="off"></label>
+        <p class="summary" id="p-summary"></p>
+        <div class="grid3">
+          <label class="stack"><span>Hauteur (H)</span><input type="number" id="p-h" step="0.5" min="0.5"></label>
+          <label class="stack"><span>Longueur (L)</span><input type="number" id="p-w" step="0.5" min="0.5"></label>
+          <label class="stack"><span>Largeur (l)</span><input type="number" id="p-d" step="0.5" min="0.5"></label>
+        </div>
+        <p class="hint">L suit le mur des meubles, l va vers l’intérieur de la pièce.</p>
+        <label class="stack"><span>Hauteur par rapport au sol (cm)</span><input type="number" id="p-elev" step="0.5" min="0"></label>
+        <div class="grid2">
+          <label class="stack"><span>Distance au mur de gauche</span><input type="number" id="p-x" step="0.5"></label>
+          <label class="stack"><span>Distance au mur des meubles</span><input type="number" id="p-z" step="0.5"></label>
+        </div>
+        <label class="stack"><span>Commentaires</span><textarea id="p-comment" rows="4"></textarea></label>
+        <div class="row">
+          <button type="button" class="btn" id="p-duplicate">Dupliquer</button>
+          <button type="button" class="btn btn-danger" id="p-delete">Supprimer</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Éléments</h2>
+        <ul class="list" id="item-list"></ul>
+      </section>
+
+      <details class="block">
+        <summary>Pièce (cm)</summary>
+        <div id="room-fields"></div>
+      </details>
+
+      <section class="block">
+        <div class="row row-wrap">
+          <button type="button" class="btn" id="export-json">Exporter (JSON)</button>
+          <label class="btn" for="import-json">Importer</label>
+          <input type="file" id="import-json" accept="application/json,.json" hidden>
+          <button type="button" class="btn" id="reset">Valeurs du croquis</button>
+        </div>
+      </section>
+
+      <details class="block notes">
         <summary>Lectures du croquis à vérifier</summary>
         <ul>
-          <li>La cote 107 est prise comme distance du plafond au haut du bloc au-dessus de la plaque (le trait trop long du croquis est ignoré, le dessin est à l’échelle).</li>
-          <li>Les meubles hauts (80 + 40) sont placés au-dessus du lave-linge et du lave-vaisselle.</li>
-          <li>Le tableau (42 × 80) est dans l’angle gauche ; la hauteur de son bas (120) est une lecture incertaine.</li>
-          <li>La porte-fenêtre (73) est sur le mur de droite, à partir de l’angle, vue rabattue sur la vue de face.</li>
+          <li>Linky / disjoncteur : sur le mur de gauche, 20 de profondeur ; largeur 26, hauteur 80 et hauteur du bas (149) estimées.</li>
+          <li>Meubles hauts : 42 de vide entre le Linky et le premier, puis 80 + 80 + 40 (le dernier s’arrête au début de l’évier).</li>
+          <li>Meubles bas à 82 + plan de travail de 3 = 85. Évier et crédence : tout le bloc de 88, crédence jusqu’à 107 du plafond.</li>
+          <li>Renfoncement de 73 puis porte-fenêtre de 108, dans le prolongement du mur des meubles : le mur mesure donc 329 + 73 + 108. Profondeur du renfoncement (20) estimée ; les deux sont des repères, le mur n’est pas percé en 3D.</li>
           <li>Hauteur du frigo (155) et retrait du mur en biais (32) : estimés, non cotés.</li>
-          <li>Le « meuble » de 60 à côté de l’espace libre n’est pas identifié sur le croquis.</li>
+          <li>Le meuble de 60 à côté de l’espace libre n’est pas identifié sur le croquis.</li>
         </ul>
       </details>
     </aside>
