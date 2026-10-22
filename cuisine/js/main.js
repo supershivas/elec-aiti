@@ -1,6 +1,8 @@
-import { TYPES, ROOM_FIELDS, createStore } from './scene.js';
+import { TYPES, ROOM_FIELDS, createStore, aabb } from './scene.js';
+import { snapMove } from './snap.js';
 import { faceView, sideView, planView, DRAG } from './drawings.js';
 
+const ROT_STEP = 15;
 const VIEWS = [
   { id: 'face', label: 'Vue de face', render: faceView, file: 'cuisine-face.svg' },
   { id: 'fond', label: 'Mur du frigo', render: sideView, file: 'cuisine-mur-frigo.svg' },
@@ -12,6 +14,7 @@ const store = createStore();
 let activeId = VIEWS[0].id;
 let view3d = null;
 let rendering3d = false;
+let guides = []; // repères d'aimantation, le temps d'un glissé
 
 const $ = (id) => document.getElementById(id);
 const tabsEl = $('tabs');
@@ -39,6 +42,26 @@ for (const v of VIEWS) {
   tabsEl.appendChild(tab);
 }
 
+// Applique un déplacement en l'aimantant (sauf Alt) puis le range dans le store.
+function moveItem(id, patch, axes, noSnap) {
+  const it = store.items.find((x) => x.id === id);
+  if (!it) return;
+  let next = patch;
+  guides = [];
+  if (!noSnap) {
+    const res = snapMove(it, patch, store.room, store.items, axes);
+    next = res.patch;
+    guides = res.guides;
+  }
+  store.updateItem(id, next);
+}
+
+function clearGuides() {
+  if (!guides.length) return;
+  guides = [];
+  drawView();
+}
+
 async function ensure3d() {
   if (view3d) return view3d;
   try {
@@ -46,7 +69,8 @@ async function ensure3d() {
     view3d = createView3d(panes['trois-d'], {
       getItem: (id) => store.items.find((it) => it.id === id),
       onSelect: (id) => store.select(id),
-      onMove: (id, pos) => store.updateItem(id, pos),
+      onMove: (id, pos, noSnap) => moveItem(id, pos, { x: true, z: true }, noSnap),
+      onDragEnd: clearGuides,
     });
   } catch (err) {
     panes['trois-d'].textContent = 'La vue 3D nécessite WebGL, indisponible sur ce navigateur.';
@@ -58,7 +82,7 @@ async function ensure3d() {
 async function drawView() {
   const v = VIEWS.find((x) => x.id === activeId);
   if (v.render) {
-    panes[v.id].innerHTML = v.render(store.room, store.items, store.selectedId);
+    panes[v.id].innerHTML = v.render(store.room, store.items, store.selectedId, guides);
     return;
   }
   if (rendering3d) return;
@@ -94,10 +118,11 @@ for (const v of VIEWS.filter((x) => x.render)) {
     if (e.button !== 0) return;
     const svg = panes[v.id].querySelector('svg');
     if (!svg) return;
-    const target = e.target.closest('.item');
-    const id = target?.dataset.id ?? null;
     // avant select() : la sélection redessine la vue et détache l'ancien <svg>
     const start = svgPoint(svg, e);
+    const handle = e.target.closest('.rot-handle');
+    const target = e.target.closest('.item');
+    const id = handle?.dataset.id ?? target?.dataset.id ?? null;
     store.select(id);
     const it = store.items.find((x) => x.id === id);
     const from = it ? { ...it } : null;
@@ -107,6 +132,14 @@ for (const v of VIEWS.filter((x) => x.render)) {
     const onMove = (ev) => {
       if (!from) return;
       const cur = svgPoint(panes[v.id].querySelector('svg'), ev);
+      if (handle) {
+        // rotation autour du centre : le crochet est à 12 cm au-dessus, soit -90°
+        const b = aabb(from);
+        let angle = (Math.atan2(cur.y - b.cz, cur.x - b.cx) * 180) / Math.PI + 90;
+        if (!ev.altKey) angle = Math.round(angle / ROT_STEP) * ROT_STEP;
+        store.updateItem(from.id, { rot: angle });
+        return;
+      }
       if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return;
       moved = true;
       let dx = cur.x - start.x;
@@ -115,13 +148,15 @@ for (const v of VIEWS.filter((x) => x.render)) {
         if (Math.abs(dx) > Math.abs(dy)) dy = 0;
         else dx = 0;
       }
-      const patch = DRAG[v.id](from, dx, dy);
+      const def = DRAG[v.id];
+      const patch = def.move(from, dx, dy);
       for (const k of Object.keys(patch)) patch[k] = Math.round(patch[k]);
-      store.updateItem(from.id, patch);
+      moveItem(from.id, patch, def.axes, ev.altKey);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      clearGuides();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -130,7 +165,9 @@ for (const v of VIEWS.filter((x) => x.render)) {
 
 // --- panneau de droite ------------------------------------------------------
 const propsEl = $('props');
-const fieldMap = { name: 'p-name', comment: 'p-comment', h: 'p-h', w: 'p-w', d: 'p-d', elev: 'p-elev', x: 'p-x', z: 'p-z' };
+const fieldMap = { name: 'p-name', comment: 'p-comment', h: 'p-h', w: 'p-w', d: 'p-d', elev: 'p-elev', x: 'p-x', z: 'p-z', rot: 'p-rot' };
+
+const round1 = (n) => Math.round(n * 10) / 10;
 
 function fillForm() {
   const it = store.selected;
@@ -138,9 +175,12 @@ function fillForm() {
   if (!it) return;
   $('p-type').textContent = TYPES[it.type].label;
   $('p-summary').textContent = `H × L × l = ${it.h} × ${it.w} × ${it.d} cm, à ${it.elev} cm du sol`;
+  // distances mesurées sur le rectangle englobant, donc justes quelle que soit la rotation
+  const b = aabb(it);
+  const shown = { ...it, x: round1(b.minX), z: round1(b.minZ) };
   for (const [key, id] of Object.entries(fieldMap)) {
     const input = $(id);
-    if (document.activeElement !== input) input.value = it[key];
+    if (document.activeElement !== input) input.value = shown[key];
   }
 }
 
@@ -153,10 +193,19 @@ for (const [key, id] of Object.entries(fieldMap)) {
       return;
     }
     if (e.target.value === '') return;
-    store.updateItem(it.id, { [key]: Number(e.target.value) });
+    let value = Number(e.target.value);
+    if (key === 'x') value -= aabb(it).minX - it.x;
+    if (key === 'z') value -= aabb(it).minZ - it.z;
+    store.updateItem(it.id, { [key]: value });
   });
 }
 
+const rotateBy = (deg) => {
+  const it = store.selected;
+  if (it) store.updateItem(it.id, { rot: (it.rot || 0) + deg });
+};
+$('p-rot-minus').addEventListener('click', () => rotateBy(-90));
+$('p-rot-plus').addEventListener('click', () => rotateBy(90));
 $('p-duplicate').addEventListener('click', () => store.selected && store.duplicateItem(store.selectedId));
 $('p-delete').addEventListener('click', () => store.selected && store.removeItem(store.selectedId));
 
@@ -272,6 +321,8 @@ window.addEventListener('keydown', (e) => {
       : activeId === 'fond' ? { z: it.z - ax * step, elev: Math.max(0, it.elev - ay * step) }
       : { x: it.x + ax * step, z: it.z + ay * step };
     store.updateItem(it.id, patch);
+  } else if (e.key === 'r' || e.key === 'R') {
+    rotateBy(e.shiftKey ? -90 : 90);
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
     store.removeItem(it.id);

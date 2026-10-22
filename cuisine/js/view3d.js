@@ -30,7 +30,7 @@ function textSprite(str) {
   return sprite;
 }
 
-// hooks : { onSelect(id|null), onMove(id, {x, z}), getItem(id) }
+// hooks : { onSelect(id|null), onMove(id, {x, z}, noSnap), onDragEnd(), getItem(id) }
 export function createView3d(container, hooks) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -67,14 +67,7 @@ export function createView3d(container, hooks) {
 
   function addItem(group, it, selected) {
     const t = TYPES[it.type];
-    let w = it.w;
-    let d = it.d;
-    let z = it.z;
-    if (it.type === 'niche') {
-      // le renfoncement est derrière le mur : on le signale par un panneau sombre plaqué dessus
-      d = 0.4;
-      z = 0.2;
-    }
+    const { w, d, z } = it;
     const geo = new THREE.BoxGeometry(w, it.h, d);
     const glass = it.type === 'porte-fenetre';
     const mat = matOf(t.color, glass ? { transparent: true, opacity: 0.4 } : {});
@@ -84,13 +77,15 @@ export function createView3d(container, hooks) {
     }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(it.x + w / 2, it.elev + it.h / 2, z + d / 2);
+    // angle du plan (sens horaire vu de dessus) : l'axe y de three.js tourne en sens inverse
+    mesh.rotation.y = (-(it.rot || 0) * Math.PI) / 180;
     mesh.userData.id = it.id;
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: selected ? SELECTED : EDGE })));
     group.add(mesh);
     pickables.push(mesh);
     if (it.name) {
       const label = textSprite(it.name);
-      label.position.set(it.x + w / 2, it.elev + it.h / 2, z + d + 2);
+      label.position.set(it.x + w / 2, it.elev + it.h + 8, z + d / 2);
       label.userData.isLabel = true;
       label.visible = labelsOn;
       group.add(label);
@@ -109,7 +104,7 @@ export function createView3d(container, hooks) {
       });
     }
     pickables = [];
-    const { W, D, Dr, flat, diagEnd, H, points } = roomShape(room);
+    const { W, D, H, points } = roomShape(room);
     const g = new THREE.Group();
 
     const shape = new THREE.Shape();
@@ -205,13 +200,15 @@ export function createView3d(container, hooks) {
     setRay(e);
     const p = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(drag.plane, p)) return;
-    hooks.onMove(drag.id, {
-      x: Math.round(drag.x + p.x - drag.start.x),
-      z: Math.round(drag.z + p.z - drag.start.z),
-    });
+    hooks.onMove(
+      drag.id,
+      { x: Math.round(drag.x + p.x - drag.start.x), z: Math.round(drag.z + p.z - drag.start.z) },
+      e.altKey,
+    );
   });
 
   window.addEventListener('pointerup', (e) => {
+    if (drag) hooks.onDragEnd();
     drag = null;
     if (emptyDown && Math.hypot(e.clientX - emptyDown.x, e.clientY - emptyDown.y) < CLICK_PX) hooks.onSelect(null);
     emptyDown = null;

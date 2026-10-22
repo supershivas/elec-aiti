@@ -176,7 +176,12 @@ défaut). `js/drawings.js` projette les éléments en SVG (cotes mesurées sur l
 l'élément sélectionné en bleu), `js/view3d.js` fait de même avec three.js (0.170 copié dans
 `cuisine/vendor/`, importmap, pas de CDN). Tout est sélectionnable/déplaçable à la souris dans les
 quatre vues, propriétés (nom, H × L × l, hauteur au sol, position, commentaires) dans le panneau de
-droite. Le renfoncement et la porte-fenêtre sont des éléments repères : le mur n'est pas percé en 3D.
+droite. Le contour de la pièce suit le plan de dessus du croquis (`roomShape` : fond à 168 puis 198
+avec biais, alcôve de 73 × 108 sur le mur de droite) ; la porte-fenêtre est un élément posé au fond
+de l'alcôve. Les éléments ont une rotation `rot` (degrés, autour du centre ; poignée en vue de dessus,
+champ, R) et un aimant (`js/snap.js` : sommets du contour, bords des autres éléments, hauteurs
+usuelles ; Alt le coupe) ; les vues de face/frigo estompent les éléments qui ne touchent pas le mur
+regardé.
 Lectures incertaines du croquis listées dans le bloc « Lectures à vérifier » de la page.
 
 ## Design system

@@ -130,3 +130,12 @@ label.btn { display: inline-flex; align-items: center; }
 .stack input, .stack textarea { width: 100%; min-width: 0; }
 .item.t-meuble-haut .item-body { fill-opacity: 0.65; }
 .item.t-evier .lbl { fill: var(--color-bg-panel); }
+
+.guide { stroke: var(--color-accent-hover); stroke-width: 1; stroke-dasharray: 5 3; pointer-events: none; }
+.rot-handle { cursor: grab; }
+.rot-dot { fill: var(--color-bg-panel); stroke: var(--color-accent); stroke-width: 1.5; }
+.row-rot { align-items: flex-end; }
+.row-rot .btn { margin-bottom: var(--space-3); padding: 0 var(--space-3); }
+.grow { flex: 1; }
+.wall-ext { stroke-dasharray: 6 4; stroke-width: 1; }
+.item.faint .item-body { fill-opacity: 0.15; stroke-opacity: 0.35; }

@@ -29,7 +29,7 @@
           <select id="add-type" aria-label="Type d’élément"></select>
           <button type="button" class="btn" id="add-btn">Ajouter</button>
         </div>
-        <p class="hint">Clique un élément pour le sélectionner, glisse-le pour le déplacer (Maj : un seul sens), flèches pour ajuster, Suppr pour le retirer.</p>
+        <p class="hint">Clique un élément pour le sélectionner, glisse-le pour le déplacer : il s’aimante aux murs, aux autres éléments et aux hauteurs usuelles (Alt : sans aimant ; Maj : un seul sens). Poignée ronde (vue de dessus) ou R pour tourner, flèches pour ajuster, Suppr pour retirer.</p>
       </section>
 
       <section class="block" id="props" hidden>
@@ -43,6 +43,11 @@
         </div>
         <p class="hint">L suit le mur des meubles, l va vers l’intérieur de la pièce.</p>
         <label class="stack"><span>Hauteur par rapport au sol (cm)</span><input type="number" id="p-elev" step="0.5" min="0"></label>
+        <div class="row row-rot">
+          <label class="stack grow"><span>Rotation (°)</span><input type="number" id="p-rot" step="1"></label>
+          <button type="button" class="btn" id="p-rot-minus" aria-label="Tourner de 90° vers la gauche">−90°</button>
+          <button type="button" class="btn" id="p-rot-plus" aria-label="Tourner de 90° vers la droite">+90°</button>
+        </div>
         <div class="grid2">
           <label class="stack"><span>Distance au mur de gauche</span><input type="number" id="p-x" step="0.5"></label>
           <label class="stack"><span>Distance au mur des meubles</span><input type="number" id="p-z" step="0.5"></label>
@@ -76,11 +81,12 @@
       <details class="block notes">
         <summary>Lectures du croquis à vérifier</summary>
         <ul>
+          <li>Plan de dessus : relevé sur ton croquis. Fond : 135 de droit, biais de 80 (longueur oblique), 120 de droit ; la profondeur passe de 168 à 198.</li>
+          <li>Alcôve de 73 (profondeur) × 108 (longueur) sur le mur de droite, à 73 du mur des meubles, avec la porte-fenêtre de 108 au fond. Il reste 17 de mur jusqu’au coin du fond (le croquis indique 20).</li>
           <li>Linky / disjoncteur : sur le mur de gauche, 20 de profondeur ; largeur 26, hauteur 80 et hauteur du bas (149) estimées.</li>
           <li>Meubles hauts : 42 de vide entre le Linky et le premier, puis 80 + 80 + 40 (le dernier s’arrête au début de l’évier).</li>
           <li>Meubles bas à 82 + plan de travail de 3 = 85. Évier et crédence : tout le bloc de 88, crédence jusqu’à 107 du plafond.</li>
-          <li>Renfoncement de 73 puis porte-fenêtre de 108, dans le prolongement du mur des meubles : le mur mesure donc 329 + 73 + 108. Profondeur du renfoncement (20) estimée ; les deux sont des repères, le mur n’est pas percé en 3D.</li>
-          <li>Hauteur du frigo (155) et retrait du mur en biais (32) : estimés, non cotés.</li>
+          <li>Hauteur du frigo (155) estimée. En vue de face et sur le mur du frigo, un élément tourné est dessiné par son rectangle englobant.</li>
           <li>Le meuble de 60 à côté de l’espace libre n’est pas identifié sur le croquis.</li>
         </ul>
       </details>

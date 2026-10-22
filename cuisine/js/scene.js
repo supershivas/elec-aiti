@@ -13,20 +13,27 @@ export const TYPES = {
   frigo: { label: 'Frigo', color: 0xf5f7f9, w: 60, d: 70, h: 155, elev: 0, wall: false },
   mural: { label: 'Linky / tableau', color: 0xe8edf2, w: 20, d: 26, h: 80, elev: 149, wall: false },
   'porte-fenetre': { label: 'Porte-fenêtre', color: 0x93c5fd, w: 108, d: 5, h: 205.7, elev: 0, wall: true },
-  niche: { label: 'Renfoncement', color: 0x4a5561, w: 73, d: 20, h: 205.7, elev: 0, wall: true },
   libre: { label: 'Élément libre', color: 0xd7dde3, w: 50, d: 50, h: 50, elev: 0, wall: false },
 };
 
 export const ROOM_FIELDS = [
   { key: 'roomH', label: 'Hauteur sous plafond' },
   { key: 'roomW', label: 'Longueur du mur des meubles' },
-  { key: 'roomD', label: 'Profondeur (côté frigo)' },
-  { key: 'flatLen', label: 'Mur opposé : tronçon droit' },
-  { key: 'diagLen', label: 'Mur opposé : tronçon en biais' },
-  { key: 'diagDrop', label: 'Mur opposé : retrait du biais' },
+  { key: 'roomD', label: 'Profondeur à gauche (côté frigo)' },
+  { key: 'roomD2', label: 'Profondeur à droite' },
+  { key: 'flatLen', label: 'Mur du fond : tronçon droit à gauche' },
+  { key: 'flatEnd', label: 'Mur du fond : tronçon droit à droite' },
+  { key: 'alcoveStart', label: 'Alcôve : distance au mur des meubles' },
+  { key: 'alcoveLen', label: 'Alcôve : longueur' },
+  { key: 'alcoveDepth', label: 'Alcôve : profondeur' },
 ];
 
-const DEFAULT_ROOM = { roomH: 247, roomW: 510, roomD: 168, flatLen: 135, diagLen: 80, diagDrop: 32 };
+// Plan de dessus du croquis : biais entre les deux tronçons du fond (80 de long),
+// alcôve de 73 × 108 sur le mur de droite.
+const DEFAULT_ROOM = {
+  roomH: 247, roomW: 329, roomD: 168, roomD2: 198, flatLen: 135, flatEnd: 120,
+  alcoveStart: 73, alcoveLen: 108, alcoveDepth: 73,
+};
 
 // [type, nom, géométrie] relevés sur le croquis et les précisions données ensuite
 const DEFAULT_ITEMS = [
@@ -42,11 +49,10 @@ const DEFAULT_ITEMS = [
   ['meuble-haut', 'Meuble haut 1 (2 portes de 40)', { x: 41, z: 0, w: 80, d: 38, h: 72.5, elev: 154.5 }],
   ['meuble-haut', 'Meuble haut 2 (2 portes de 40)', { x: 121, z: 0, w: 80, d: 38, h: 72.5, elev: 154.5 }],
   ['meuble-haut', 'Meuble haut 3', { x: 201, z: 0, w: 40, d: 38, h: 72.5, elev: 154.5 }],
-  ['niche', 'Renfoncement', { x: 329, z: -20, w: 73, d: 20, h: 205.7 }],
-  ['porte-fenetre', 'Porte-fenêtre', { x: 402, z: 0, w: 108, d: 5, h: 205.7 }],
+  ['porte-fenetre', 'Porte-fenêtre', { x: 397, z: 73, w: 5, d: 108, h: 205.7 }],
 ];
 
-const STORAGE_KEY = 'cuisine-aiti:scene:v2';
+const STORAGE_KEY = 'cuisine-aiti:scene:v3';
 const MIN_SIZE = 0.5;
 
 function makeItem(id, type, name, geo) {
@@ -62,6 +68,7 @@ function makeItem(id, type, name, geo) {
     d: geo.d ?? t.d,
     h: geo.h ?? t.h,
     elev: geo.elev ?? t.elev,
+    rot: 0,
   };
 }
 
@@ -72,6 +79,7 @@ function defaultState() {
   };
 }
 
+const normAngle = (a) => Math.round((((a % 360) + 360) % 360) * 10) / 10;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
 function sanitize(raw) {
@@ -97,6 +105,7 @@ function sanitize(raw) {
       d: it.d,
       h: it.h,
       elev: num(it.elev) ? Math.max(0, it.elev) : 0,
+      rot: num(it.rot) ? normAngle(it.rot) : 0,
     });
   }
   return { room, items };
@@ -157,6 +166,7 @@ export function createStore() {
         else if (!num(v)) continue;
         else if (k === 'w' || k === 'd' || k === 'h') it[k] = Math.max(MIN_SIZE, v);
         else if (k === 'elev') it[k] = Math.max(0, v);
+        else if (k === 'rot') it[k] = normAngle(v);
         else if (k === 'x' || k === 'z') it[k] = v;
       }
       emit();
@@ -183,7 +193,7 @@ export function createStore() {
     duplicateItem(id) {
       const src = find(id);
       if (!src) return;
-      const copy = { ...src, id: nextId(), name: `${src.name} (copie)`, x: src.x + 10, z: src.z + (src.type === 'niche' ? 0 : 10) };
+      const copy = { ...src, id: nextId(), name: `${src.name} (copie)`, x: src.x + 10, z: src.z + 10 };
       state.items.push(copy);
       selectedId = copy.id;
       emit();
@@ -215,13 +225,37 @@ export function createStore() {
   };
 }
 
-// Valeurs dérivées de la pièce, partagées par les vues.
+// Contour de la pièce (x le long du mur des meubles, z vers l'intérieur), dans le
+// sens qui oriente les murs vers l'intérieur : le biais relie le fond de gauche
+// (profondeur roomD) au fond de droite (roomD2).
 export function roomShape(room) {
   const W = room.roomW;
   const D = room.roomD;
+  const D2 = Math.max(room.roomD2, 0);
   const flat = Math.min(room.flatLen, W);
-  const diagEnd = Math.min(flat + room.diagLen, W);
-  const Dr = Math.max(0, D - room.diagDrop);
-  const points = [[0, 0], [W, 0], [W, Dr], [diagEnd, Dr], [flat, D], [0, D]];
-  return { W, D, H: room.roomH, Dr, flat, diagEnd, points };
+  const diagEnd = Math.max(flat, W - room.flatEnd);
+  const aDepth = room.alcoveDepth;
+  const aStart = Math.min(room.alcoveStart, D2);
+  const aEnd = Math.min(aStart + room.alcoveLen, D2);
+  const points = [[0, 0], [W, 0]];
+  if (aDepth > 0 && aEnd > aStart) points.push([W, aStart], [W + aDepth, aStart], [W + aDepth, aEnd], [W, aEnd]);
+  points.push([W, D2], [diagEnd, D2], [flat, D], [0, D]);
+  return {
+    W, D, D2, H: room.roomH, flat, diagEnd, aStart, aEnd, aDepth,
+    maxX: aDepth > 0 && aEnd > aStart ? W + aDepth : W,
+    maxD: Math.max(D, D2),
+    points,
+  };
+}
+
+// Rectangle englobant (dans le plan) d'un élément, rotation comprise.
+export function aabb(it) {
+  const r = ((it.rot || 0) * Math.PI) / 180;
+  const c = Math.abs(Math.cos(r));
+  const sn = Math.abs(Math.sin(r));
+  const hx = (it.w * c + it.d * sn) / 2;
+  const hz = (it.w * sn + it.d * c) / 2;
+  const cx = it.x + it.w / 2;
+  const cz = it.z + it.d / 2;
+  return { minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz, cx, cz };
 }
