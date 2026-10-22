@@ -166,6 +166,14 @@ quitter la comparaison. Coupée automatiquement par "Nouveau projet"/"Ouvrir un 
 comparaison n'aurait plus de sens contre un projet différent) ; jamais incluse dans les
 exports (SVG/PNG/PDF).
 
+## Page Cuisine Aiti (`cuisine/`)
+Page indépendante (sans lien depuis l'app, pas de version/CHANGELOG propres) : schémas à l'échelle
+d'une cuisine relevés sur un croquis papier. `cuisine/index.html` + `js/params.js` (cotes
+éditables, persistées en localStorage `cuisine-aiti:params`, valeurs dérivées dans `layout()`),
+`js/drawings.js` (vues 2D SVG : face, mur du frigo, dessus ; cotes mesurées sur la géométrie),
+`js/view3d.js` (three.js). three.js 0.170 est copié dans `cuisine/vendor/` (importmap, pas de CDN).
+Lectures incertaines du croquis listées dans le bloc « Lectures à vérifier » de la page.
+
 ## Design system
 - `css/design-tokens.css` : variables CSS pour couleurs, espacements (grille base 4px :
   4/8/12/16/24/32/48px), typographie.

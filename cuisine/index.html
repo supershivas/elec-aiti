@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cuisine Aiti</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/design-tokens.css">
+  <link rel="stylesheet" href="css/cuisine.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">Cuisine Aiti</a>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Vues"></div>
+    <div class="actions">
+      <label id="labels-wrap" class="check" hidden><input type="checkbox" id="labels-toggle" checked> Noms</label>
+      <button type="button" class="btn" id="export-svg">Exporter la vue en SVG</button>
+    </div>
+  </header>
+  <main class="layout">
+    <section class="stage" id="stage" aria-live="polite"></section>
+    <aside class="side">
+      <div class="side-head">
+        <h2>Cotes (cm)</h2>
+        <button type="button" class="btn" id="reset">Valeurs du croquis</button>
+      </div>
+      <div id="fields"></div>
+      <details class="notes">
+        <summary>Lectures du croquis à vérifier</summary>
+        <ul>
+          <li>La cote 107 est prise comme distance du plafond au haut du bloc au-dessus de la plaque (le trait trop long du croquis est ignoré, le dessin est à l’échelle).</li>
+          <li>Les meubles hauts (80 + 40) sont placés au-dessus du lave-linge et du lave-vaisselle.</li>
+          <li>Le tableau (42 × 80) est dans l’angle gauche ; la hauteur de son bas (120) est une lecture incertaine.</li>
+          <li>La porte-fenêtre (73) est sur le mur de droite, à partir de l’angle, vue rabattue sur la vue de face.</li>
+          <li>Hauteur du frigo (155) et retrait du mur en biais (32) : estimés, non cotés.</li>
+          <li>Le « meuble » de 60 à côté de l’espace libre n’est pas identifié sur le croquis.</li>
+        </ul>
+      </details>
+    </aside>
+  </main>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
