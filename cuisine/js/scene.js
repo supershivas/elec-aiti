@@ -298,17 +298,9 @@ export function createStore() {
       });
     },
 
-    // Revient aux valeurs du croquis : annulable.
-    resetToSketch() {
-      mutate(() => {
-        state = defaultState();
-        selectedId = null;
-      });
-    },
-
-    // Nouvelle cuisine : pièce du croquis, sans aucun élément. Repart d'un historique vide.
+    // Nouvelle cuisine : on repart du croquis d'origine, avec un historique vide.
     newScene() {
-      state = { room: { ...DEFAULT_ROOM }, items: [] };
+      state = defaultState();
       fileName = '';
       selectedId = null;
       savedSnap = snapshotOf(state);

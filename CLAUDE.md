@@ -182,7 +182,7 @@ de l'alcôve. Les éléments ont une rotation `rot` (degrés, autour du centre ;
 champ, R) et un aimant (`js/snap.js` : sommets du contour, bords des autres éléments, hauteurs
 usuelles ; Alt le coupe) ; les vues de face/frigo estompent les éléments qui ne touchent pas le mur
 regardé.
-Bandeau comme l'éditeur de schémas (menus Fichier / Édition, `js/menuBar.js` copié) : Nouvelle cuisine,
+Bandeau comme l'éditeur de schémas (menus Fichier / Édition, `js/menuBar.js` copié) : Nouvelle cuisine (croquis d'origine),
 Enregistrer / Enregistrer sous / Ouvrir au format `.aiti3d` (JSON `{format:'aiti3d', version, room, items}`,
 `js/fileIo.js`, sélecteurs natifs si disponibles sinon téléchargement/`<input>`), export SVG de la vue,
 Annuler/Rétablir (Ctrl+Z / Ctrl+Y, historique dans le store de `scene.js` : un glissé ou une rafale de

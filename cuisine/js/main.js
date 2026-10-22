@@ -380,9 +380,6 @@ menu.onAction('menu-undo', () => store.undo());
 menu.onAction('menu-redo', () => store.redo());
 menu.onAction('menu-duplicate', () => store.selected && store.duplicateItem(store.selectedId));
 menu.onAction('menu-delete', () => store.selected && store.removeItem(store.selectedId));
-menu.onAction('menu-reset', () => {
-  if (window.confirm('Revenir au croquis d’origine ? (Annulable avec Édition > Annuler.)')) store.resetToSketch();
-});
 $('btn-undo').addEventListener('click', () => store.undo());
 $('btn-redo').addEventListener('click', () => store.redo());
 
