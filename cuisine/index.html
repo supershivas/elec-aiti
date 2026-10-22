@@ -14,10 +14,39 @@
 <body>
   <header class="topbar">
     <a class="brand" href="./">Cuisine Aiti</a>
+    <nav class="menubar" aria-label="Menu principal">
+      <div class="menubar__item">
+        <button type="button" class="menubar__trigger" id="menu-file-trigger" aria-haspopup="true" aria-expanded="false">Fichier</button>
+        <div class="menubar__dropdown" id="menu-file-dropdown" hidden role="menu">
+          <button type="button" class="menubar__action" id="menu-new" role="menuitem">Nouvelle cuisine</button>
+          <hr class="menubar__separator">
+          <button type="button" class="menubar__action" id="menu-save" role="menuitem">Enregistrer (.aiti3d)<kbd>Ctrl+S</kbd></button>
+          <button type="button" class="menubar__action" id="menu-save-as" role="menuitem">Enregistrer sous…</button>
+          <button type="button" class="menubar__action" id="menu-open" role="menuitem">Ouvrir (.aiti3d)<kbd>Ctrl+O</kbd></button>
+          <input type="file" id="open-input" accept=".aiti3d,application/json" hidden>
+          <hr class="menubar__separator">
+          <button type="button" class="menubar__action" id="menu-export-svg" role="menuitem">Exporter la vue en SVG</button>
+        </div>
+      </div>
+      <div class="menubar__item">
+        <button type="button" class="menubar__trigger" id="menu-edit-trigger" aria-haspopup="true" aria-expanded="false">Édition</button>
+        <div class="menubar__dropdown" id="menu-edit-dropdown" hidden role="menu">
+          <button type="button" class="menubar__action" id="menu-undo" role="menuitem">Annuler<kbd>Ctrl+Z</kbd></button>
+          <button type="button" class="menubar__action" id="menu-redo" role="menuitem">Rétablir<kbd>Ctrl+Y</kbd></button>
+          <hr class="menubar__separator">
+          <button type="button" class="menubar__action" id="menu-duplicate" role="menuitem">Dupliquer l’élément</button>
+          <button type="button" class="menubar__action" id="menu-delete" role="menuitem">Supprimer l’élément<kbd>Suppr</kbd></button>
+          <hr class="menubar__separator">
+          <button type="button" class="menubar__action menubar__action--danger" id="menu-reset" role="menuitem">Revenir au croquis d’origine</button>
+        </div>
+      </div>
+    </nav>
     <div class="tabs" id="tabs" role="tablist" aria-label="Vues"></div>
-    <div class="actions">
+    <div class="topbar__right">
       <label id="labels-wrap" class="check" hidden><input type="checkbox" id="labels-toggle" checked> Noms</label>
-      <button type="button" class="btn" id="export-svg">Exporter la vue en SVG</button>
+      <button type="button" class="icon-btn" id="btn-undo" title="Annuler (Ctrl+Z)" aria-label="Annuler"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button type="button" class="icon-btn" id="btn-redo" title="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+      <span class="filename" id="filename"></span>
     </div>
   </header>
   <main class="layout">
@@ -68,15 +97,6 @@
         <summary>Pièce (cm)</summary>
         <div id="room-fields"></div>
       </details>
-
-      <section class="block">
-        <div class="row row-wrap">
-          <button type="button" class="btn" id="export-json">Exporter (JSON)</button>
-          <label class="btn" for="import-json">Importer</label>
-          <input type="file" id="import-json" accept="application/json,.json" hidden>
-          <button type="button" class="btn" id="reset">Valeurs du croquis</button>
-        </div>
-      </section>
 
       <details class="block notes">
         <summary>Lectures du croquis à vérifier</summary>

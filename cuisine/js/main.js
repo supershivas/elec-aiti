@@ -1,5 +1,7 @@
 import { TYPES, ROOM_FIELDS, createStore, aabb } from './scene.js';
 import { snapMove } from './snap.js';
+import { MenuBar } from './menuBar.js';
+import { saveScene, openScene, loadFromInput, forgetFile } from './fileIo.js';
 import { faceView, sideView, planView, DRAG } from './drawings.js';
 
 const ROT_STEP = 15;
@@ -19,7 +21,7 @@ let guides = []; // repères d'aimantation, le temps d'un glissé
 const $ = (id) => document.getElementById(id);
 const tabsEl = $('tabs');
 const stageEl = $('stage');
-const exportBtn = $('export-svg');
+const exportBtn = $('menu-export-svg');
 const labelsToggle = $('labels-toggle');
 const labelsWrap = $('labels-wrap');
 
@@ -70,7 +72,11 @@ async function ensure3d() {
       getItem: (id) => store.items.find((it) => it.id === id),
       onSelect: (id) => store.select(id),
       onMove: (id, pos, noSnap) => moveItem(id, pos, { x: true, z: true }, noSnap),
-      onDragEnd: clearGuides,
+      onDragStart: () => store.beginGesture(),
+      onDragEnd: () => {
+        store.endGesture();
+        clearGuides();
+      },
     });
   } catch (err) {
     panes['trois-d'].textContent = 'La vue 3D nécessite WebGL, indisponible sur ce navigateur.';
@@ -100,10 +106,13 @@ function select(id) {
   for (const v of VIEWS) panes[v.id].hidden = v.id !== id;
   for (const tab of tabsEl.children) tab.setAttribute('aria-selected', String(tab.dataset.view === id));
   const current = VIEWS.find((v) => v.id === id);
-  exportBtn.hidden = !current.render;
+  exportBtn.disabled = !current.render;
   labelsWrap.hidden = !!current.render;
   drawView();
 }
+
+// un clic dans une vue doit sortir d'un champ du panneau (sinon sa valeur périmée s'appliquerait à la nouvelle sélection)
+stageEl.addEventListener('pointerdown', () => document.activeElement?.blur?.(), true);
 
 // --- sélection et glissé dans les vues 2D ----------------------------------
 function svgPoint(svg, e) {
@@ -133,6 +142,8 @@ for (const v of VIEWS.filter((x) => x.render)) {
       if (!from) return;
       const cur = svgPoint(panes[v.id].querySelector('svg'), ev);
       if (handle) {
+        if (!moved) store.beginGesture();
+        moved = true;
         // rotation autour du centre : le crochet est à 12 cm au-dessus, soit -90°
         const b = aabb(from);
         let angle = (Math.atan2(cur.y - b.cz, cur.x - b.cx) * 180) / Math.PI + 90;
@@ -141,6 +152,7 @@ for (const v of VIEWS.filter((x) => x.render)) {
         return;
       }
       if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return;
+      if (!moved) store.beginGesture();
       moved = true;
       let dx = cur.x - start.x;
       let dy = cur.y - start.y;
@@ -156,6 +168,7 @@ for (const v of VIEWS.filter((x) => x.render)) {
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      store.endGesture();
       clearGuides();
     };
     window.addEventListener('pointermove', onMove);
@@ -254,32 +267,9 @@ function fillRoom() {
   }
 }
 
-$('reset').addEventListener('click', () => {
-  if (window.confirm('Revenir au croquis d’origine ? Les modifications seront perdues.')) store.reset();
-});
-
-$('export-json').addEventListener('click', () => {
-  const blob = new Blob([store.exportJSON()], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'cuisine-aiti.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
-
-$('import-json').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  try {
-    store.importJSON(await file.text());
-  } catch {
-    window.alert('Ce fichier n’est pas une cuisine Aiti valide.');
-  }
-});
-
-exportBtn.addEventListener('click', () => {
+exportBtn.addEventListener('export', () => {
   const v = VIEWS.find((x) => x.id === activeId);
+  if (exportBtn.disabled) return;
   const style = [...document.styleSheets]
     .filter((s) => s.href && s.href.includes('cuisine.css'))
     .flatMap((s) => [...s.cssRules])
@@ -308,7 +298,26 @@ window.addEventListener('resize', () => view3d?.resize());
 
 // --- clavier : flèches = déplacer, Suppr = supprimer, Échap = désélectionner
 window.addEventListener('keydown', (e) => {
+  const mod = e.ctrlKey || e.metaKey;
+  const key = e.key.toLowerCase();
+  if (mod && key === 's') {
+    e.preventDefault();
+    saveScene(store, { saveAs: e.shiftKey });
+    return;
+  }
+  if (mod && key === 'o') {
+    e.preventDefault();
+    askOpen();
+    return;
+  }
+  // dans un champ de texte, on laisse le navigateur gérer son propre annuler/rétablir
   if (e.target.closest('input, textarea, select')) return;
+  if (mod && (key === 'z' || key === 'y')) {
+    e.preventDefault();
+    if (key === 'y' || e.shiftKey) store.redo();
+    else store.undo();
+    return;
+  }
   const it = store.selected;
   if (!it) return;
   const step = e.shiftKey ? 10 : 1;
@@ -331,7 +340,66 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- menus, fichier, historique ----------------------------------------------
+const menu = new MenuBar([
+  { triggerId: 'menu-file-trigger', dropdownId: 'menu-file-dropdown' },
+  { triggerId: 'menu-edit-trigger', dropdownId: 'menu-edit-dropdown' },
+]);
+
+const confirmDiscard = (what) => !store.dirty || window.confirm(`Des modifications ne sont pas enregistrées. ${what}`);
+
+async function askOpen() {
+  if (!confirmDiscard('Ouvrir un autre fichier les perdra.')) return;
+  try {
+    await openScene(store, $('open-input'));
+  } catch {
+    window.alert('Ce fichier n’est pas une cuisine Aiti (.aiti3d) valide.');
+  }
+}
+
+menu.onAction('menu-new', () => {
+  if (!confirmDiscard('Une nouvelle cuisine les perdra.')) return;
+  forgetFile();
+  store.newScene();
+});
+menu.onAction('menu-save', () => saveScene(store));
+menu.onAction('menu-save-as', () => saveScene(store, { saveAs: true }));
+menu.onAction('menu-open', askOpen);
+$('open-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    await loadFromInput(store, file);
+  } catch {
+    window.alert('Ce fichier n’est pas une cuisine Aiti (.aiti3d) valide.');
+  }
+});
+menu.onAction('menu-export-svg', () => exportBtn.dispatchEvent(new Event('export')));
+menu.onAction('menu-undo', () => store.undo());
+menu.onAction('menu-redo', () => store.redo());
+menu.onAction('menu-duplicate', () => store.selected && store.duplicateItem(store.selectedId));
+menu.onAction('menu-delete', () => store.selected && store.removeItem(store.selectedId));
+menu.onAction('menu-reset', () => {
+  if (window.confirm('Revenir au croquis d’origine ? (Annulable avec Édition > Annuler.)')) store.resetToSketch();
+});
+$('btn-undo').addEventListener('click', () => store.undo());
+$('btn-redo').addEventListener('click', () => store.redo());
+
+function fillChrome() {
+  $('menu-undo').disabled = !store.canUndo();
+  $('btn-undo').disabled = !store.canUndo();
+  $('menu-redo').disabled = !store.canRedo();
+  $('btn-redo').disabled = !store.canRedo();
+  $('menu-duplicate').disabled = !store.selected;
+  $('menu-delete').disabled = !store.selected;
+  const name = store.fileName || 'Sans titre';
+  $('filename').textContent = `${name}${store.dirty ? ' (modifié)' : ''}`;
+  document.title = `${name}${store.dirty ? ' *' : ''} — Cuisine Aiti`;
+}
+
 function renderAll() {
+  fillChrome();
   drawView();
   fillList();
   fillForm();
@@ -342,3 +410,4 @@ store.subscribe(renderAll);
 select(activeId);
 fillList();
 fillRoom();
+fillChrome();

@@ -54,6 +54,9 @@ const DEFAULT_ITEMS = [
 
 const STORAGE_KEY = 'cuisine-aiti:scene:v3';
 const MIN_SIZE = 0.5;
+const HISTORY_MAX = 100;
+const COALESCE_MS = 1200;
+export const FILE_FORMAT = 'aiti3d';
 
 function makeItem(id, type, name, geo) {
   const t = TYPES[type];
@@ -111,24 +114,42 @@ function sanitize(raw) {
   return { room, items };
 }
 
+const snapshotOf = (state) => JSON.stringify({ room: state.room, items: state.items });
+
 function load() {
   try {
-    const parsed = sanitize(JSON.parse(localStorage.getItem(STORAGE_KEY)));
-    if (parsed) return parsed;
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const parsed = sanitize(raw);
+    if (parsed) {
+      return {
+        state: parsed,
+        fileName: typeof raw.fileName === 'string' ? raw.fileName : '',
+        saved: typeof raw.saved === 'string' ? raw.saved : null,
+      };
+    }
   } catch {
     // stockage absent ou corrompu : on repart du croquis
   }
-  return defaultState();
+  return { state: defaultState(), fileName: '', saved: null };
 }
 
 export function createStore() {
-  let state = load();
+  const loaded = load();
+  let state = loaded.state;
+  let fileName = loaded.fileName;
+  let savedSnap = loaded.saved ?? snapshotOf(state);
   let selectedId = null;
+  let undoStack = [];
+  let redoStack = [];
+  let gesture = false; // glissé en cours : un seul point d'annulation pour tout le geste
+  let gestureRecorded = false;
+  let lastKey = null;
+  let lastTime = 0;
   const subs = new Set();
 
   const persist = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileName, saved: savedSnap }));
     } catch {
       // la page reste utilisable sans mémoire
     }
@@ -143,12 +164,53 @@ export function createStore() {
     while (find(`i${n}`)) n += 1;
     return `i${n}`;
   };
+  const clearHistory = () => {
+    undoStack = [];
+    redoStack = [];
+    lastKey = null;
+  };
+
+  // Mémorise l'état d'avant une modification. Pendant un glissé, un seul point pour
+  // tout le geste ; sinon les saisies successives d'un même champ sont regroupées.
+  function record(before, key) {
+    if (gesture) {
+      if (gestureRecorded) return;
+      gestureRecorded = true;
+    } else {
+      const now = Date.now();
+      const merge = key && key === lastKey && now - lastTime < COALESCE_MS;
+      lastKey = key;
+      lastTime = now;
+      if (merge) return;
+    }
+    undoStack.push(before);
+    if (undoStack.length > HISTORY_MAX) undoStack.shift();
+    redoStack = [];
+  }
+
+  // Applique `change`, et ne garde une trace (historique, enregistrement) que si l'état a bougé.
+  function mutate(change, key = null) {
+    const before = snapshotOf(state);
+    change();
+    if (snapshotOf(state) === before) return;
+    record(before, key);
+    emit();
+  }
+
+  function restore(snap) {
+    const parsed = sanitize(JSON.parse(snap));
+    state = parsed;
+    if (selectedId && !find(selectedId)) selectedId = null;
+    lastKey = null;
+  }
 
   return {
     get room() { return state.room; },
     get items() { return state.items; },
     get selectedId() { return selectedId; },
     get selected() { return find(selectedId) ?? null; },
+    get fileName() { return fileName; },
+    get dirty() { return snapshotOf(state) !== savedSnap; },
     subscribe(fn) { subs.add(fn); },
 
     select(id) {
@@ -158,68 +220,123 @@ export function createStore() {
       emit(false);
     },
 
-    updateItem(id, patch) {
-      const it = find(id);
-      if (!it) return;
-      for (const [k, v] of Object.entries(patch)) {
-        if (k === 'name' || k === 'comment') it[k] = String(v);
-        else if (!num(v)) continue;
-        else if (k === 'w' || k === 'd' || k === 'h') it[k] = Math.max(MIN_SIZE, v);
-        else if (k === 'elev') it[k] = Math.max(0, v);
-        else if (k === 'rot') it[k] = normAngle(v);
-        else if (k === 'x' || k === 'z') it[k] = v;
-      }
+    canUndo() { return undoStack.length > 0; },
+    canRedo() { return redoStack.length > 0; },
+    undo() {
+      if (!undoStack.length) return false;
+      redoStack.push(snapshotOf(state));
+      restore(undoStack.pop());
       emit();
+      return true;
+    },
+    redo() {
+      if (!redoStack.length) return false;
+      undoStack.push(snapshotOf(state));
+      restore(redoStack.pop());
+      emit();
+      return true;
+    },
+    beginGesture() {
+      gesture = true;
+      gestureRecorded = false;
+    },
+    endGesture() {
+      gesture = false;
+      gestureRecorded = false;
+      lastKey = null;
+    },
+
+    updateItem(id, patch) {
+      mutate(() => {
+        const it = find(id);
+        if (!it) return;
+        for (const [k, v] of Object.entries(patch)) {
+          if (k === 'name' || k === 'comment') it[k] = String(v);
+          else if (!num(v)) continue;
+          else if (k === 'w' || k === 'd' || k === 'h') it[k] = Math.max(MIN_SIZE, v);
+          else if (k === 'elev') it[k] = Math.max(0, v);
+          else if (k === 'rot') it[k] = normAngle(v);
+          else if (k === 'x' || k === 'z') it[k] = v;
+        }
+      }, `${id}:${Object.keys(patch).sort().join(',')}`);
     },
 
     updateRoom(patch) {
-      for (const [k, v] of Object.entries(patch)) if (k in state.room && num(v) && v > 0) state.room[k] = v;
-      emit();
+      mutate(() => {
+        for (const [k, v] of Object.entries(patch)) if (k in state.room && num(v) && v > 0) state.room[k] = v;
+      }, `room:${Object.keys(patch).join(',')}`);
     },
 
     addItem(type) {
       const t = TYPES[type];
       if (!t) return;
-      const n = state.items.length;
-      const it = makeItem(nextId(), type, t.label, {
-        x: 80 + (n % 6) * 12,
-        z: t.wall ? 0 : Math.max(0, state.room.roomD / 2 - t.d / 2),
+      mutate(() => {
+        const n = state.items.length;
+        const it = makeItem(nextId(), type, t.label, {
+          x: 80 + (n % 6) * 12,
+          z: t.wall ? 0 : Math.max(0, state.room.roomD / 2 - t.d / 2),
+        });
+        state.items.push(it);
+        selectedId = it.id;
       });
-      state.items.push(it);
-      selectedId = it.id;
-      emit();
     },
 
     duplicateItem(id) {
-      const src = find(id);
-      if (!src) return;
-      const copy = { ...src, id: nextId(), name: `${src.name} (copie)`, x: src.x + 10, z: src.z + 10 };
-      state.items.push(copy);
-      selectedId = copy.id;
-      emit();
+      mutate(() => {
+        const src = find(id);
+        if (!src) return;
+        const copy = { ...src, id: nextId(), name: `${src.name} (copie)`, x: src.x + 10, z: src.z + 10 };
+        state.items.push(copy);
+        selectedId = copy.id;
+      });
     },
 
     removeItem(id) {
-      state.items = state.items.filter((it) => it.id !== id);
-      if (selectedId === id) selectedId = null;
-      emit();
+      mutate(() => {
+        state.items = state.items.filter((it) => it.id !== id);
+        if (selectedId === id) selectedId = null;
+      });
     },
 
-    reset() {
-      state = defaultState();
+    // Revient aux valeurs du croquis : annulable.
+    resetToSketch() {
+      mutate(() => {
+        state = defaultState();
+        selectedId = null;
+      });
+    },
+
+    // Nouvelle cuisine : pièce du croquis, sans aucun élément. Repart d'un historique vide.
+    newScene() {
+      state = { room: { ...DEFAULT_ROOM }, items: [] };
+      fileName = '';
       selectedId = null;
+      savedSnap = snapshotOf(state);
+      clearHistory();
       emit();
     },
 
-    exportJSON() {
-      return JSON.stringify({ version: 2, ...state }, null, 2);
+    // Contenu du fichier .aiti3d (JSON renommé, comme le .aiti de l'éditeur de schémas).
+    toFile() {
+      return { format: FILE_FORMAT, version: 1, room: state.room, items: state.items };
     },
 
-    importJSON(text) {
-      const parsed = sanitize(JSON.parse(text));
+    loadFile(text, name = '') {
+      const raw = JSON.parse(text);
+      if (raw?.format !== FILE_FORMAT) throw new Error('Fichier non reconnu');
+      const parsed = sanitize(raw);
       if (!parsed) throw new Error('Fichier non reconnu');
       state = parsed;
+      fileName = name;
       selectedId = null;
+      savedSnap = snapshotOf(state);
+      clearHistory();
+      emit();
+    },
+
+    markSaved(name) {
+      fileName = name;
+      savedSnap = snapshotOf(state);
       emit();
     },
   };

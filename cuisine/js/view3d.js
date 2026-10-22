@@ -30,7 +30,7 @@ function textSprite(str) {
   return sprite;
 }
 
-// hooks : { onSelect(id|null), onMove(id, {x, z}, noSnap), onDragEnd(), getItem(id) }
+// hooks : { onSelect(id|null), onMove(id, {x, z}, noSnap), onDragStart(), onDragEnd(), getItem(id) }
 export function createView3d(container, hooks) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -196,6 +196,7 @@ export function createView3d(container, hooks) {
   window.addEventListener('pointermove', (e) => {
     if (!drag) return;
     if (!drag.moved && Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < CLICK_PX) return;
+    if (!drag.moved) hooks.onDragStart();
     drag.moved = true;
     setRay(e);
     const p = new THREE.Vector3();
